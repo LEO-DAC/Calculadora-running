@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  Calculadora de Running (Ritmo + Backyard)
+  ---------------------------------------------------------------------
+  Archivo: index.html
+  Descripción: Estructura de la interfaz. Un control segmentado permite
+  cambiar entre dos calculadoras:
+    1. Ritmo: distancia + tiempo (h, min, s) -> ritmo por km.
+    2. Backyard: vueltas de 6.7 km + km extra opcionales -> km totales.
+  Cada una tiene su formulario y su tarjeta de resultados.
+  Estilos: styles.css   |   Lógica: app.js
+  =====================================================================
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <!-- viewport-fit=cover permite usar el área segura (notch) en iPhone -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Permite que la app se comporte como app nativa al agregarla a la pantalla de inicio en iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <title>Calculadora de Running</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+
+    <!-- Encabezado grande al estilo iOS ("Large Title") -->
+    <!-- El título y subtítulo cambian según la calculadora activa (app.js) -->
+    <header class="app-header">
+      <h1 id="app-title">Ritmo</h1>
+      <p class="subtitle" id="app-subtitle">Calcula tu ritmo de carrera por kilómetro</p>
+    </header>
+
+    <!--
+      Control segmentado estilo iOS para cambiar de calculadora.
+      data-title / data-subtitle: textos del encabezado para cada vista.
+      aria-controls: id de la sección (tabpanel) que muestra cada botón.
+    -->
+    <div class="segmented" id="calc-switcher" role="tablist" aria-label="Tipo de calculadora" data-active="0">
+      <span class="segmented-thumb" aria-hidden="true"></span>
+      <button type="button" class="segmented-option" role="tab" id="tab-pace"
+              aria-selected="true" aria-controls="pace-view"
+              data-title="Ritmo" data-subtitle="Calcula tu ritmo de carrera por kilómetro">Ritmo</button>
+      <button type="button" class="segmented-option" role="tab" id="tab-backyard"
+              aria-selected="false" aria-controls="backyard-view" tabindex="-1"
+              data-title="Backyard" data-subtitle="Calcula los kilómetros totales de tu backyard">Backyard</button>
+    </div>
+
+    <!-- =============================================================
+         VISTA 1: Calculadora de ritmo
+         ============================================================= -->
+    <section id="pace-view" class="view" role="tabpanel" aria-labelledby="tab-pace">
+
+    <!-- Formulario principal. novalidate: la validación la hacemos en app.js -->
+    <form id="pace-form" novalidate>
+
+      <!-- ===== Sección: Distancia ===== -->
+      <h2 class="section-title">Distancia</h2>
+      <!-- group--menu: permite que el menú desplegable sobresalga del grupo -->
+      <div class="group group--menu">
+        <div class="row">
+          <span class="row-label" id="distance-label">Prueba</span>
+
+          <!--
+            Select nativo OCULTO: es la fuente de verdad del valor (en km).
+            app.js lo lee para validar y calcular. Los atributos data-title y
+            data-detail alimentan el menú personalizado de abajo.
+          -->
+          <select id="distance" name="distance" class="visually-hidden" tabindex="-1" aria-hidden="true">
+            <option value="" selected disabled>Seleccionar</option>
+            <option value="5" data-title="5K" data-detail="5 km">5K</option>
+            <option value="10" data-title="10K" data-detail="10 km">10K</option>
+            <option value="15" data-title="15K" data-detail="15 km">15K</option>
+            <option value="21.0975" data-title="21K" data-detail="Media maratón · 21.0975 km">21K</option>
+            <option value="42.195" data-title="Maratón" data-detail="42.195 km">Maratón</option>
+            <option value="other" data-title="Otro" data-detail="Distancia personalizada">Otro</option>
+          </select>
+
+          <!-- Dropdown personalizado estilo iOS (construido por app.js) -->
+          <div class="picker">
+            <button type="button" class="picker-button" id="picker-button"
+                    aria-haspopup="listbox" aria-expanded="false"
+                    aria-labelledby="distance-label picker-text">
+              <span class="picker-text is-placeholder" id="picker-text">Seleccionar</span>
+              <svg class="picker-chevron" width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
+                <path d="M1 6l4-4 4 4M1 10l4 4 4-4" fill="none" stroke="currentColor"
+                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <!-- Las opciones (<li>) se generan desde el select oculto -->
+            <ul class="picker-menu" id="picker-menu" role="listbox"
+                aria-labelledby="distance-label" tabindex="-1" hidden></ul>
+          </div>
+        </div>
+
+        <!-- Campo oculto por defecto: solo se muestra si se elige "Otro" -->
+        <label class="row" id="custom-distance-row" for="custom-distance" hidden>
+          <span class="row-label">Kilómetros</span>
+          <input type="text" id="custom-distance" name="customDistance" class="row-input"
+                 inputmode="decimal" placeholder="Ej. 8.5" autocomplete="off" disabled>
+        </label>
+      </div>
+
+      <!-- ===== Sección: Tiempo ===== -->
+      <h2 class="section-title">Tiempo</h2>
+      <div class="group time-group">
+        <label class="time-field" for="hours">
+          <input type="text" id="hours" name="hours" class="numeric-int"
+                 inputmode="numeric" maxlength="3" placeholder="0" autocomplete="off">
+          <span>horas</span>
+        </label>
+        <label class="time-field" for="minutes">
+          <input type="text" id="minutes" name="minutes" class="numeric-int"
+                 inputmode="numeric" maxlength="2" placeholder="0" autocomplete="off">
+          <span>min</span>
+        </label>
+        <label class="time-field" for="seconds">
+          <input type="text" id="seconds" name="seconds" class="numeric-int"
+                 inputmode="numeric" maxlength="2" placeholder="0" autocomplete="off">
+          <span>seg</span>
+        </label>
+      </div>
+
+      <!-- Botones de acción -->
+      <button type="submit" class="btn-primary">Calcular</button>
+      <button type="reset" class="btn-plain">Limpiar</button>
+    </form>
+
+    <!-- ===== Sección: Resultados (oculta hasta calcular) ===== -->
+    <section id="results" class="results" hidden aria-live="polite">
+      <h2 class="section-title">Resultado</h2>
+      <div class="group">
+        <div class="pace-hero">
+          <span id="pace-value" class="pace-value">--:--</span>
+          <span class="pace-unit">min / km</span>
+        </div>
+        <div class="row">
+          <span class="row-label">Velocidad</span>
+          <span id="speed-value" class="row-value">--</span>
+        </div>
+        <div class="row">
+          <span class="row-label">Distancia</span>
+          <span id="distance-value" class="row-value">--</span>
+        </div>
+        <div class="row">
+          <span class="row-label">Tiempo total</span>
+          <span id="time-value" class="row-value">--</span>
+        </div>
+      </div>
+    </section>
+
+    </section><!-- /#pace-view -->
+
+    <!-- =============================================================
+         VISTA 2: Calculadora Backyard
+         Total km = vueltas completas × 6.7 km + km extra (opcional)
+         ============================================================= -->
+    <section id="backyard-view" class="view" role="tabpanel" aria-labelledby="tab-backyard" hidden>
+
+      <form id="backyard-form" novalidate>
+
+        <!-- ===== Sección: Vueltas ===== -->
+        <h2 class="section-title">Vueltas</h2>
+        <div class="group">
+          <label class="row" for="laps">
+            <span class="row-label">Vueltas completas</span>
+            <input type="text" id="laps" name="laps" class="row-input"
+                   inputmode="numeric" maxlength="4" placeholder="0" autocomplete="off">
+          </label>
+          <!-- Dato fijo informativo: distancia de cada vuelta -->
+          <div class="row">
+            <span class="row-label">Distancia por vuelta</span>
+            <span class="row-value">6.7 km</span>
+          </div>
+        </div>
+
+        <!-- ===== Sección: Km extra (opcional) ===== -->
+        <h2 class="section-title">Kilómetros extra</h2>
+        <div class="group">
+          <!-- Interruptor estilo iOS: habilita / deshabilita el campo de km extra -->
+          <label class="row" for="extra-toggle">
+            <span class="row-label">Vuelta incompleta</span>
+            <input type="checkbox" id="extra-toggle" name="extraToggle" class="switch" role="switch">
+          </label>
+          <!-- Oculto y deshabilitado hasta activar el interruptor -->
+          <label class="row" id="extra-row" for="extra-km" hidden>
+            <span class="row-label">Km extra</span>
+            <input type="text" id="extra-km" name="extraKm" class="row-input"
+                   inputmode="decimal" placeholder="Ej. 3.2" autocomplete="off" disabled>
+          </label>
+        </div>
+        <p class="group-footer">Actívalo si recorriste kilómetros sin completar la última vuelta.</p>
+
+        <!-- Botones de acción -->
+        <button type="submit" class="btn-primary">Calcular</button>
+        <button type="reset" class="btn-plain">Limpiar</button>
+      </form>
+
+      <!-- ===== Resultado Backyard (oculto hasta calcular) ===== -->
+      <section id="backyard-results" class="results" hidden aria-live="polite">
+        <h2 class="section-title">Resultado</h2>
+        <div class="group">
+          <!-- Reutiliza el bloque grande del resultado de ritmo -->
+          <div class="pace-hero">
+            <span id="backyard-total" class="pace-value">--</span>
+            <span class="pace-unit">km totales</span>
+          </div>
+          <div class="row">
+            <span class="row-label">Vueltas</span>
+            <span id="backyard-laps-value" class="row-value">--</span>
+          </div>
+          <div class="row">
+            <span class="row-label">Km en vueltas</span>
+            <span id="backyard-laps-km" class="row-value">--</span>
+          </div>
+          <div class="row">
+            <span class="row-label">Km extra</span>
+            <span id="backyard-extra-value" class="row-value">--</span>
+          </div>
+        </div>
+      </section>
+
+    </section><!-- /#backyard-view -->
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
