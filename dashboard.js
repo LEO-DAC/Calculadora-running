@@ -4,7 +4,10 @@
  * Descripción: Lógica de la sección "Entrenos" (dashboard).
  *
  *  - Importa uno o varios archivos GPX (botón o arrastrar y soltar).
- *  - Guarda cada entrenamiento en el navegador (storage.js).
+ *  - Sube cada entrenamiento al servidor (storage.js -> api/workouts.php),
+ *    para verlo desde cualquier dispositivo de la red.
+ *  - Migra al servidor los entrenamientos de la versión anterior que
+ *    estaban guardados solo en el navegador.
  *  - Filtros por año y tipo de actividad, que afectan a todo lo de abajo.
  *  - Resumen: km totales, entrenamientos, tiempo, ritmo y desnivel.
  *  - Lista de entrenamientos con botón para ver el detalle en otra ventana.
@@ -58,6 +61,7 @@
    * ------------------------------------------------------------------ */
   const state = {
     workouts: [],   // resúmenes de todos los entrenamientos
+    serverError: null, // mensaje si no se pudo conectar con el servidor
     year: new Date().getFullYear(), // año seleccionado en el filtro
     sport: 'all',   // actividad seleccionada ('all' = todas)
     showAll: false  // lista completa o solo los primeros
@@ -77,18 +81,31 @@
    * 3. Carga e importación
    * ------------------------------------------------------------------ */
 
-  /** Lee los entrenamientos guardados y redibuja el dashboard. */
-  function load() {
-    return WorkoutStore.getAll()
-      .then(function (workouts) { state.workouts = workouts; })
+  /** Evita cargas simultáneas (p. ej. al volver a la pestaña varias veces). */
+  let loading = null;
+
+  /**
+   * Lee los entrenamientos del servidor y redibuja el dashboard.
+   * @param {boolean} [silent=false] - true: si falla, no muestra alert
+   *        (se usa al refrescar automáticamente).
+   */
+  function load(silent) {
+    if (loading) return loading;
+    loading = WorkoutStore.getAll()
+      .then(function (workouts) {
+        state.workouts = workouts;
+        state.serverError = null;
+      })
       .catch(function (err) {
-        state.workouts = [];
-        alert('No se pudieron cargar los entrenamientos guardados.\n' + err.message);
+        state.serverError = err.message;
+        if (!silent) alert('No se pudieron cargar los entrenamientos.\n' + err.message);
       })
       .then(function () {
+        loading = null;
         sortWorkouts();
         render();
       });
+    return loading;
   }
 
   /**
@@ -104,15 +121,25 @@
     });
   }
 
-  /** Muestra el botón de importar como ocupado / disponible. */
-  function setBusy(busy) {
+  /**
+   * Muestra el botón de importar como ocupado / disponible.
+   * @param {boolean} busy
+   * @param {string} [label='Importando…'] - Texto mientras está ocupado.
+   */
+  function setBusy(busy, label) {
     importButton.disabled = busy;
-    importLabel.textContent = busy ? 'Importando…' : 'Importar entrenamiento';
+    importLabel.textContent = busy ? (label || 'Importando…') : 'Importar entrenamiento';
   }
 
   /**
-   * Importa una lista de archivos GPX. Valida la extensión, lee cada
-   * archivo, evita duplicados y avisa con alert() de cualquier problema.
+   * Importa una lista de archivos GPX:
+   *  1. valida la extensión .gpx;
+   *  2. lee y procesa cada archivo en el navegador (gpx.js) para validar
+   *     el formato y calcular el resumen;
+   *  3. descarta los que ya están importados;
+   *  4. sube el archivo original + el resumen al servidor (storage.js),
+   *     que los guarda en MySQL y en api/storage/gpx/.
+   * Avisa con alert() de cualquier problema.
    * @param {FileList|File[]} fileList
    */
   async function importFiles(fileList) {
@@ -140,13 +167,13 @@
           duplicates.push(file.name);
           continue;
         }
-        result.summary.id = WorkoutStore.createId();
-        result.summary.importedAt = Date.now();
-        await WorkoutStore.add(result.summary, result.track);
-        state.workouts.push(result.summary);
-        imported.push(result.summary);
+        // El servidor asigna el id y la fecha de importación
+        const saved = await WorkoutStore.add(file, file.name, result.summary);
+        state.workouts.push(saved);
+        imported.push(saved);
       } catch (err) {
-        errors.push(file.name + ': ' + err.message);
+        if (err.duplicate) duplicates.push(file.name); // otro dispositivo ya lo subió
+        else errors.push(file.name + ': ' + err.message);
       }
     }
 
@@ -166,7 +193,7 @@
     // Avisos de problemas (solo si los hubo)
     const messages = [];
     if (duplicates.length) messages.push('Ya estaban importados:\n• ' + duplicates.join('\n• '));
-    if (errors.length) messages.push('No se pudieron leer:\n• ' + errors.join('\n• '));
+    if (errors.length) messages.push('No se pudieron importar:\n• ' + errors.join('\n• '));
     if (messages.length) {
       if (imported.length) messages.unshift('Se importaron ' + imported.length + ' entrenamiento(s).');
       alert(messages.join('\n\n'));
@@ -324,9 +351,13 @@
     if (!workouts.length) {
       const empty = document.createElement('li');
       empty.className = 'list-empty';
-      empty.textContent = state.workouts.length
-        ? 'No hay entrenamientos para este filtro.'
-        : 'Aún no has importado entrenamientos. Usa “Importar entrenamiento” para agregar tu primer archivo GPX.';
+      if (state.serverError && !state.workouts.length) {
+        empty.textContent = 'No se pudo conectar con el servidor. ' + state.serverError;
+      } else {
+        empty.textContent = state.workouts.length
+          ? 'No hay entrenamientos para este filtro.'
+          : 'Aún no has importado entrenamientos. Usa “Importar entrenamiento” para agregar tu primer archivo GPX.';
+      }
       listEl.appendChild(empty);
       listMoreButton.hidden = true;
       return;
@@ -441,9 +472,82 @@
     window.addEventListener('resize', renderChart);
   }
 
-  // Si otra ventana (detalle) elimina un entrenamiento, recarga los datos
-  WorkoutStore.onChange(load);
+  /* ------------------------------------------------------------------
+   * 6. Migración de datos antiguos del navegador al servidor
+   * ------------------------------------------------------------------ */
 
-  render(); // estado inicial (vacío) mientras se leen los datos guardados
-  load();
+  /**
+   * Si este navegador tiene entrenamientos de la versión anterior
+   * (guardados solo en IndexedDB), ofrece subirlos al servidor. Cada
+   * uno se convierte de nuevo a archivo GPX (GPX.toGpx), se sube y, si
+   * todo sale bien, se borra del navegador. Se pregunta una vez por
+   * sesión para no insistir si el usuario prefiere hacerlo después.
+   */
+  async function migrateLegacy() {
+    const askedKey = 'calculadora-running-migracion-preguntada';
+    try { if (sessionStorage.getItem(askedKey)) return; } catch (e) { /* sin sessionStorage */ }
+
+    const legacy = await LegacyStore.getAll();
+    if (!legacy.length) return;
+    try { sessionStorage.setItem(askedKey, '1'); } catch (e) { /* sin sessionStorage */ }
+
+    const ok = confirm('Hay ' + legacy.length + ' entrenamiento(s) guardados solo en este navegador ' +
+                       '(versión anterior de la app).\n\n¿Subirlos al servidor para verlos desde ' +
+                       'cualquier dispositivo de tu red? Al terminar se quitarán de este navegador.');
+    if (!ok) return;
+
+    setBusy(true, 'Subiendo al servidor…');
+    let moved = 0;
+    let duplicates = 0;
+    const errors = [];
+
+    for (const item of legacy) {
+      try {
+        const data = await LegacyStore.get(item.id);
+        if (!data) continue;
+        const xml = GPX.toGpx(data.summary, data.track);
+        const fileName = data.summary.fileName || (data.summary.name + '.gpx');
+        const summary = Object.assign({}, data.summary);
+        delete summary.id;
+        delete summary.importedAt;
+        await WorkoutStore.add(new Blob([xml], { type: 'application/gpx+xml' }), fileName, summary);
+        moved++;
+        await LegacyStore.remove(item.id);
+      } catch (err) {
+        if (err.duplicate) {
+          duplicates++;
+          await LegacyStore.remove(item.id); // ya está en el servidor
+        } else {
+          errors.push((item.name || item.id) + ': ' + err.message);
+        }
+      }
+    }
+
+    setBusy(false);
+    WorkoutStore.notifyChange();
+    await load(true);
+
+    let message = 'Se subieron ' + moved + ' entrenamiento(s) al servidor.';
+    if (duplicates) message += '\n' + duplicates + ' ya estaban en el servidor.';
+    if (errors.length) message += '\n\nNo se pudieron subir (siguen en este navegador):\n• ' + errors.join('\n• ');
+    alert(message);
+  }
+
+  /* ------------------------------------------------------------------
+   * 7. Inicio y actualización automática
+   * ------------------------------------------------------------------ */
+
+  // Si otra pestaña (detalle) elimina un entrenamiento, recarga los datos
+  WorkoutStore.onChange(function () { load(true); });
+
+  // Al volver a la app (cambiar de pestaña o desbloquear el teléfono),
+  // recarga para ver lo que se importó desde otros dispositivos
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') load(true);
+  });
+
+  render(); // estado inicial (vacío) mientras se leen los datos del servidor
+  load().then(function () {
+    if (!state.serverError) migrateLegacy();
+  });
 })();

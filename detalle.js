@@ -3,12 +3,13 @@
  * Archivo: detalle.js
  * Descripción: Lógica de la página de detalle de un entrenamiento.
  *
- *  1. Lee el id de la URL (detalle.html?id=...) y busca el
- *     entrenamiento guardado (storage.js).
+ *  1. Lee el id de la URL (detalle.html?id=...) y pide al servidor el
+ *     resumen y el archivo .gpx original (storage.js -> api/workouts.php).
  *  2. Analiza el recorrido (gpx.js): parciales, series para gráficas.
  *  3. Muestra métricas, ruta, gráficas sincronizadas con el mapa,
  *     parciales por km y todos los datos adicionales del archivo.
- *  4. Permite eliminar el entrenamiento y volver al dashboard.
+ *  4. Permite descargar el .gpx original, eliminar el entrenamiento y
+ *     volver al dashboard.
  *
  * Depende de: gpx.js (GPX), storage.js (WorkoutStore), charts.js (Charts).
  * =====================================================================
@@ -36,6 +37,7 @@
   const moreDataEl = document.getElementById('more-data');
   const backButton = document.getElementById('back-button');
   const deleteButton = document.getElementById('delete-button');
+  const downloadButton = document.getElementById('download-button');
 
   const workoutId = new URLSearchParams(window.location.search).get('id');
 
@@ -337,6 +339,7 @@
       renderVisuals(w, sport, track, series);
       renderSplits(sport, splits);
       renderMoreData(w, sport);
+      downloadButton.href = WorkoutStore.gpxUrl(w.id);
 
       // Redibuja mapa y gráficas al cambiar el ancho (rotar, redimensionar)
       let lastWidth = chartsEl.clientWidth;

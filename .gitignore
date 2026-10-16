@@ -1,0 +1,5 @@
+# Archivos GPX subidos (datos personales; viven solo en el servidor)
+api/storage/gpx/
+
+# Configuración local con credenciales (ver api/config.php)
+api/config.local.php

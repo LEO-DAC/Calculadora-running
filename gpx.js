@@ -7,6 +7,7 @@
  *
  * Expone el objeto global `GPX` con:
  *  - GPX.parse(texto, nombreArchivo) -> { summary, track }
+ *  - GPX.toGpx(summary, track)       -> texto XML de un archivo GPX
  *  - GPX.analyze(track)              -> distancias y tiempos acumulados
  *  - GPX.splits(track, analysis)     -> parciales por kilómetro
  *  - GPX.series(track, analysis, n)  -> datos remuestreados para gráficas
@@ -543,7 +544,68 @@
   }
 
   /* ------------------------------------------------------------------
-   * 9. Formatos de presentación
+   * 9. Exportar a GPX
+   * ------------------------------------------------------------------ */
+
+  /** Escapa caracteres especiales para insertar texto en XML. */
+  function escapeXml(text) {
+    return String(text).replace(/[<>&'"]/g, function (c) {
+      return { '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c];
+    });
+  }
+
+  /**
+   * Reconstruye un archivo GPX (formato Strava/Garmin) a partir de un
+   * resumen y su recorrido. Se usa para subir al servidor los
+   * entrenamientos que antes solo estaban guardados en el navegador.
+   * @param {object} summary
+   * @param {object} track
+   * @returns {string} XML del archivo GPX.
+   */
+  function toGpx(summary, track) {
+    const TYPE_NAMES = { run: 'running', ride: 'cycling', walk: 'walking', hike: 'hiking', swim: 'swimming' };
+    const type = summary.rawType || TYPE_NAMES[summary.sport] || '';
+    const at = function (key, i) { return track[key] ? track[key][i] : null; };
+
+    const lines = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<gpx creator="' + escapeXml(summary.creator || 'Calculadora de Running') + '" version="1.1"' +
+        ' xmlns="http://www.topografix.com/GPX/1/1"' +
+        ' xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">'
+    ];
+    if (summary.startTime) {
+      lines.push(' <metadata><time>' + new Date(summary.startTime).toISOString() + '</time></metadata>');
+    }
+    lines.push(' <trk>');
+    lines.push('  <name>' + escapeXml(summary.name || 'Entrenamiento') + '</name>');
+    if (summary.description) lines.push('  <desc>' + escapeXml(summary.description) + '</desc>');
+    if (type) lines.push('  <type>' + escapeXml(type) + '</type>');
+    lines.push('  <trkseg>');
+
+    for (let i = 0; i < track.lat.length; i++) {
+      let point = '   <trkpt lat="' + track.lat[i] + '" lon="' + track.lon[i] + '">';
+      if (at('ele', i) !== null) point += '<ele>' + at('ele', i) + '</ele>';
+      if (at('time', i) !== null) point += '<time>' + new Date(at('time', i)).toISOString() + '</time>';
+
+      let tpx = '';
+      if (at('temp', i) !== null) tpx += '<gpxtpx:atemp>' + at('temp', i) + '</gpxtpx:atemp>';
+      if (at('hr', i) !== null) tpx += '<gpxtpx:hr>' + at('hr', i) + '</gpxtpx:hr>';
+      if (at('cad', i) !== null) tpx += '<gpxtpx:cad>' + at('cad', i) + '</gpxtpx:cad>';
+      const power = at('power', i) !== null ? '<power>' + at('power', i) + '</power>' : '';
+      if (tpx || power) {
+        point += '<extensions>' + power +
+                 (tpx ? '<gpxtpx:TrackPointExtension>' + tpx + '</gpxtpx:TrackPointExtension>' : '') +
+                 '</extensions>';
+      }
+      lines.push(point + '</trkpt>');
+    }
+
+    lines.push('  </trkseg>', ' </trk>', '</gpx>');
+    return lines.join('\n');
+  }
+
+  /* ------------------------------------------------------------------
+   * 10. Formatos de presentación
    * ------------------------------------------------------------------ */
 
   const format = {
@@ -599,10 +661,11 @@
   };
 
   /* ------------------------------------------------------------------
-   * 10. API pública
+   * 11. API pública
    * ------------------------------------------------------------------ */
   window.GPX = {
     parse: parse,
+    toGpx: toGpx,
     analyze: analyze,
     splits: splits,
     series: series,
