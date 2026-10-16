@@ -24,7 +24,7 @@
   <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <title>Calculadora de Running</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
   <main class="app">
@@ -327,11 +327,16 @@
 
   </main>
 
-  <!-- Orden de carga: utilidades compartidas -> lógica de cada sección -->
-  <script src="gpx.js"></script>
-  <script src="storage.js"></script>
-  <script src="charts.js"></script>
-  <script src="app.js"></script>
-  <script src="dashboard.js"></script>
+  <!--
+    Orden de carga: utilidades compartidas -> lógica de cada sección.
+    ?v=N obliga a los navegadores a descargar la versión nueva en lugar de
+    usar una copia guardada: súbelo (aquí, en styles.css y en detalle.html)
+    cada vez que cambien los archivos .js o .css.
+  -->
+  <script src="gpx.js?v=3"></script>
+  <script src="storage.js?v=3"></script>
+  <script src="charts.js?v=3"></script>
+  <script src="app.js?v=3"></script>
+  <script src="dashboard.js?v=3"></script>
 </body>
 </html>
