@@ -10,9 +10,10 @@
  *  - Calcula el ritmo (min/km), la velocidad (km/h) y muestra el resultado.
  *      ritmo (segundos por km) = tiempo total en segundos / distancia en km
  *
- *  Cambio de sección (sección 8):
- *  - Control segmentado que alterna entre Ritmo, Backyard y Entrenos.
- *    (La lógica del dashboard Entrenos está en dashboard.js.)
+ *  Navegación (sección 8):
+ *  - Objeto global App: pestañas según el rol del usuario (alumno o
+ *    entrenador), registro de secciones y navegación entre ellas.
+ *    (Cada sección tiene su propio archivo: dashboard.js, plan.js...)
  *
  *  Calculadora Backyard (sección 9):
  *  - Vueltas completas de 6.7 km + km extra opcionales (interruptor).
@@ -457,23 +458,79 @@
   });
 
   /* ==================================================================
-   * 8. Cambio de sección (control segmentado Ritmo / Backyard / Entrenos)
+   * 8. Navegación entre secciones según el rol (objeto global App)
+   * ------------------------------------------------------------------
+   * Cada sección (dashboard.js, plan.js, progress.js...) se registra con
+   * App.register('hash', { show: function () {...} }). auth.js llama a
+   * App.start(usuario) después de iniciar sesión: se muestran solo las
+   * pestañas del rol (atributo data-roles) y se abre la primera o la que
+   * indique la URL (#plan, #progreso...).
    * ================================================================== */
 
   const switcher = document.getElementById('calc-switcher');
-  const tabs = Array.from(switcher.querySelectorAll('.segmented-option'));
+  const allTabs = Array.from(switcher.querySelectorAll('.segmented-option'));
   const appTitle = document.getElementById('app-title');
   const appSubtitle = document.getElementById('app-subtitle');
-  const appMain = document.querySelector('.app');
+  const appMain = document.getElementById('app-main');
+
+  /** Pestañas visibles para el rol actual. */
+  let tabs = [];
+
+  const App = window.App = {
+    /** Usuario con sesión iniciada: { id, name, role: 'athlete'|'coach', ... } */
+    user: null,
+    /** Entrenador del alumno: { id, name, color } (o null). */
+    coach: null,
+    /** Secciones registradas: hash -> { show() } */
+    views: {},
+    /**
+     * Datos para pasar entre secciones, p. ej.:
+     *  progressAthleteId: alumno a mostrar en Progreso (entrenador)
+     *  builderPreset: { athleteId } o { template } para Crear entreno
+     */
+    state: {},
+
+    /** Registra una sección. */
+    register: function (hash, view) {
+      this.views[hash] = view;
+    },
+
+    /** Arranca la app para el usuario que inició sesión. */
+    start: function (user, coach) {
+      this.user = user;
+      this.coach = coach || null;
+      tabs = allTabs.filter(function (tab) {
+        const visible = tab.dataset.roles.split(' ').indexOf(user.role) !== -1;
+        tab.hidden = !visible;
+        return visible;
+      });
+      switcher.style.setProperty('--count', tabs.length);
+      appMain.hidden = false;
+
+      // Abre la sección de la URL si existe para este rol; si no, la primera
+      const fromHash = tabs.findIndex(function (t) { return '#' + t.dataset.hash === window.location.hash; });
+      activateTab(fromHash >= 0 ? fromHash : 0);
+    },
+
+    /** Abre la sección indicada por su hash (p. ej. 'progreso'). */
+    go: function (hash) {
+      const index = tabs.findIndex(function (t) { return t.dataset.hash === hash; });
+      if (index >= 0) {
+        activateTab(index);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  };
 
   /**
-   * Activa una pestaña: marca el segmento, mueve la pastilla, muestra
-   * su vista, oculta las demás y actualiza título, subtítulo y URL.
-   * @param {number} index - Posición de la pestaña (0 = Ritmo, 1 = Backyard, 2 = Entrenos).
+   * Activa una pestaña: marca el segmento, mueve la pastilla, muestra su
+   * sección, oculta las demás, actualiza título, subtítulo y URL, y avisa
+   * a la sección para que cargue sus datos.
+   * @param {number} index - Posición entre las pestañas visibles.
    */
   function activateTab(index) {
-    tabs.forEach(function (tab, i) {
-      const isActive = i === index;
+    allTabs.forEach(function (tab) {
+      const isActive = tab === tabs[index];
       tab.setAttribute('aria-selected', String(isActive));
       tab.tabIndex = isActive ? 0 : -1;  // solo la pestaña activa recibe Tab
       document.getElementById(tab.getAttribute('aria-controls')).hidden = !isActive;
@@ -482,17 +539,24 @@
     const tab = tabs[index];
     switcher.style.setProperty('--active', index);  // mueve la pastilla (CSS)
     appTitle.textContent = tab.dataset.title;
-    appSubtitle.textContent = tab.dataset.subtitle;
-    // El dashboard usa más ancho en tablet y escritorio
+    appSubtitle.textContent = (App.user && App.user.role === 'coach' && tab.dataset.subtitleCoach) ||
+                              tab.dataset.subtitle;
+    // Los dashboards usan más ancho en tablet y escritorio
     appMain.classList.toggle('app--wide', tab.dataset.wide === 'true');
-    // Refleja la sección en la URL (#entrenos) sin agregar historial
+    // Refleja la sección en la URL (#plan) sin agregar historial
     if (history.replaceState) history.replaceState(null, '', '#' + tab.dataset.hash);
     closePicker(false);                             // por si el menú quedó abierto
+
+    // Mantiene visible el segmento activo cuando el control se desliza
+    if (tab.scrollIntoView) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
+    const view = App.views[tab.dataset.hash];
+    if (view && view.show) view.show();
   }
 
   // Cambiar con clic o toque
-  tabs.forEach(function (tab, i) {
-    tab.addEventListener('click', function () { activateTab(i); });
+  allTabs.forEach(function (tab) {
+    tab.addEventListener('click', function () { activateTab(tabs.indexOf(tab)); });
   });
 
   // Cambiar con flechas izquierda / derecha (patrón accesible de pestañas)
@@ -505,9 +569,13 @@
     tabs[next].focus();
   });
 
-  // Al cargar: abre la sección indicada en la URL (p. ej. index.html#entrenos)
-  const initialTab = tabs.findIndex(function (t) { return '#' + t.dataset.hash === window.location.hash; });
-  if (initialTab > 0) activateTab(initialTab);
+  // Enlaces internos entre secciones: <a data-go="progreso">
+  document.addEventListener('click', function (e) {
+    const link = e.target.closest('[data-go]');
+    if (!link) return;
+    e.preventDefault();
+    App.go(link.dataset.go);
+  });
 
   /* ==================================================================
    * 9. Calculadora Backyard

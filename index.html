@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <!--
   =====================================================================
-  Calculadora de Running (Ritmo + Backyard + Entrenos)
+  Calculadora de Running
   ---------------------------------------------------------------------
   Archivo: index.html
-  Descripción: Estructura de la interfaz. Un control segmentado permite
-  cambiar entre tres secciones:
-    1. Ritmo: distancia + tiempo (h, min, s) -> ritmo por km.
-    2. Backyard: vueltas de 6.7 km + km extra opcionales -> km totales.
-    3. Entrenos: dashboard de actividades importadas desde archivos GPX
-       (Strava). El detalle de cada una se abre en detalle.html.
-  Estilos: styles.css   |   Lógica: app.js
+  Descripción: Estructura de la interfaz. Requiere iniciar sesión; las
+  secciones dependen del rol del usuario:
+
+    Alumno:     Entrenos (importar GPX y dashboard), Mi plan (entrenos
+                asignados), Progreso, Ritmo y Backyard (calculadoras).
+    Entrenador: Alumnos, Crear entreno, Biblioteca (plantillas) y
+                Progreso de cada alumno.
+
+  El detalle de cada actividad importada se abre en detalle.html.
+  Estilos: styles.css | Lógica: un archivo .js por sección (ver abajo)
   =====================================================================
 -->
 <html lang="es">
@@ -24,47 +27,108 @@
   <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <title>Calculadora de Running</title>
-  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
-  <main class="app">
 
-    <!-- Encabezado grande al estilo iOS ("Large Title") -->
-    <!-- El título y subtítulo cambian según la calculadora activa (app.js) -->
-    <header class="app-header">
-      <h1 id="app-title">Ritmo</h1>
-      <p class="subtitle" id="app-subtitle">Calcula tu ritmo de carrera por kilómetro</p>
-    </header>
+  <!-- =============================================================
+       PANTALLA DE ACCESO (auth.js): iniciar sesión o, la primera vez,
+       crear la cuenta del entrenador.
+       ============================================================= -->
+  <div class="auth-screen" id="auth-screen" hidden>
+    <div class="auth-card">
+      <div class="auth-logo" aria-hidden="true">🏃</div>
+      <h1 class="auth-title">Calculadora de Running</h1>
+
+      <!-- Inicio de sesión -->
+      <form id="login-form" novalidate hidden>
+        <p class="auth-text">Inicia sesión para ver tus entrenamientos.</p>
+        <div class="group">
+          <label class="row"><span class="row-label">Correo</span>
+            <input class="row-input" type="email" name="email" autocomplete="username" placeholder="tu@correo.com" required></label>
+          <label class="row"><span class="row-label">Contraseña</span>
+            <input class="row-input" type="password" name="password" autocomplete="current-password" placeholder="••••••••" required></label>
+        </div>
+        <button type="submit" class="btn-primary">Iniciar sesión</button>
+        <p class="group-footer">¿No tienes cuenta? Pídele a tu entrenador que te dé de alta.</p>
+      </form>
+
+      <!-- Configuración inicial: solo aparece si aún no existe ninguna cuenta -->
+      <form id="setup-form" novalidate hidden>
+        <p class="auth-text">Bienvenido. Crea la cuenta del <strong>entrenador</strong>; después podrás dar de alta a tus alumnos.</p>
+        <div class="group">
+          <label class="row"><span class="row-label">Nombre</span>
+            <input class="row-input" name="name" autocomplete="name" placeholder="Tu nombre" required></label>
+          <label class="row"><span class="row-label">Correo</span>
+            <input class="row-input" type="email" name="email" autocomplete="username" placeholder="tu@correo.com" required></label>
+          <label class="row"><span class="row-label">Contraseña</span>
+            <input class="row-input" type="password" name="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres" required></label>
+          <label class="row"><span class="row-label">Confirmar</span>
+            <input class="row-input" type="password" name="confirm" autocomplete="new-password" placeholder="Repite la contraseña" required></label>
+        </div>
+        <button type="submit" class="btn-primary">Crear cuenta de entrenador</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- La app se muestra después de iniciar sesión -->
+  <main class="app" id="app-main" hidden>
+
+    <!-- Encabezado grande al estilo iOS ("Large Title") + cuenta del usuario -->
+    <div class="app-top">
+      <header class="app-header">
+        <h1 id="app-title">Entrenos</h1>
+        <p class="subtitle" id="app-subtitle"></p>
+      </header>
+      <!-- Botón de cuenta: abre el panel con cambiar contraseña y cerrar sesión -->
+      <button type="button" class="user-pill" id="user-pill" aria-label="Tu cuenta"></button>
+    </div>
 
     <!--
-      Control segmentado estilo iOS para cambiar de calculadora.
-      data-title / data-subtitle: textos del encabezado para cada vista.
-      aria-controls: id de la sección (tabpanel) que muestra cada botón.
+      Control segmentado estilo iOS para cambiar de sección. Solo se
+      muestran los botones del rol del usuario (data-roles).
+      data-title / data-subtitle: textos del encabezado de cada sección
+        (data-subtitle-coach: texto distinto para el entrenador).
+      data-hash: se refleja en la URL (#entrenos, #plan...) para abrir
+        directamente una sección.
+      data-wide: la sección usa el ancho de dashboard (tablet / escritorio).
+      Si no caben todos (teléfonos), el control se desliza en horizontal.
     -->
-    <!--
-      --count: número de segmentos (ancho de la pastilla deslizante).
-      data-hash: se refleja en la URL (#ritmo, #backyard, #entrenos) para
-      poder abrir directamente una sección.
-      data-wide: la vista usa el ancho de dashboard (tablet / escritorio).
-    -->
-    <div class="segmented" id="calc-switcher" role="tablist" aria-label="Sección" style="--count: 3">
-      <span class="segmented-thumb" aria-hidden="true"></span>
-      <button type="button" class="segmented-option" role="tab" id="tab-pace"
-              aria-selected="true" aria-controls="pace-view" data-hash="ritmo"
-              data-title="Ritmo" data-subtitle="Calcula tu ritmo de carrera por kilómetro">Ritmo</button>
-      <button type="button" class="segmented-option" role="tab" id="tab-backyard"
-              aria-selected="false" aria-controls="backyard-view" tabindex="-1" data-hash="backyard"
-              data-title="Backyard" data-subtitle="Calcula los kilómetros totales de tu backyard">Backyard</button>
-      <button type="button" class="segmented-option" role="tab" id="tab-training"
-              aria-selected="false" aria-controls="training-view" tabindex="-1" data-hash="entrenos"
-              data-wide="true"
-              data-title="Entrenos" data-subtitle="Importa tus actividades GPX de Strava y analízalas">Entrenos</button>
+    <div class="segmented" id="calc-switcher">
+      <div class="segmented-track" role="tablist" aria-label="Sección">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <button type="button" class="segmented-option" role="tab" id="tab-training" data-roles="athlete"
+                aria-controls="training-view" data-hash="entrenos" data-wide="true"
+                data-title="Entrenos" data-subtitle="Importa tus actividades GPX de Strava y analízalas">Entrenos</button>
+        <button type="button" class="segmented-option" role="tab" id="tab-plan" data-roles="athlete"
+                aria-controls="plan-view" data-hash="plan" data-wide="true"
+                data-title="Mi plan" data-subtitle="Los entrenamientos que te asignó tu entrenador">Mi plan</button>
+        <button type="button" class="segmented-option" role="tab" id="tab-athletes" data-roles="coach"
+                aria-controls="athletes-view" data-hash="alumnos" data-wide="true"
+                data-title="Alumnos" data-subtitle="Sigue el avance y cumplimiento de tus alumnos">Alumnos</button>
+        <button type="button" class="segmented-option" role="tab" id="tab-builder" data-roles="coach"
+                aria-controls="builder-view" data-hash="crear" data-wide="true"
+                data-title="Crear entreno" data-subtitle="Diseña entrenamientos de running y asígnalos a tus alumnos">Crear entreno</button>
+        <button type="button" class="segmented-option" role="tab" id="tab-library" data-roles="coach"
+                aria-controls="library-view" data-hash="biblioteca" data-wide="true"
+                data-title="Biblioteca" data-subtitle="Tus plantillas de entrenamiento reutilizables">Biblioteca</button>
+        <button type="button" class="segmented-option" role="tab" id="tab-progress" data-roles="athlete coach"
+                aria-controls="progress-view" data-hash="progreso" data-wide="true"
+                data-title="Progreso" data-subtitle="Tu avance en kilómetros por mes y por año"
+                data-subtitle-coach="Avance de tus alumnos por mes y por año">Progreso</button>
+        <button type="button" class="segmented-option" role="tab" id="tab-pace" data-roles="athlete"
+                aria-controls="pace-view" data-hash="ritmo"
+                data-title="Ritmo" data-subtitle="Calcula tu ritmo de carrera por kilómetro">Ritmo</button>
+        <button type="button" class="segmented-option" role="tab" id="tab-backyard" data-roles="athlete"
+                aria-controls="backyard-view" data-hash="backyard"
+                data-title="Backyard" data-subtitle="Calcula los kilómetros totales de tu backyard">Backyard</button>
+      </div>
     </div>
 
     <!-- =============================================================
          VISTA 1: Calculadora de ritmo
          ============================================================= -->
-    <section id="pace-view" class="view" role="tabpanel" aria-labelledby="tab-pace">
+    <section id="pace-view" class="view" role="tabpanel" aria-labelledby="tab-pace" hidden>
 
     <!-- Formulario principal. novalidate: la validación la hacemos en app.js -->
     <form id="pace-form" novalidate>
@@ -319,24 +383,73 @@
           <div class="group chart-card">
             <div class="chart" id="monthly-chart"></div>
           </div>
-          <p class="group-footer">Pasa el cursor o toca una barra para ver los km de ese mes.</p>
+          <p class="group-footer">
+            Pasa el cursor o toca una barra para ver los km de ese mes.
+            Para comparar periodos ve a <a href="#progreso" class="inline-link" data-go="progreso">Progreso ›</a>
+          </p>
 
         </div>
       </div>
     </section><!-- /#training-view -->
 
+    <!-- =============================================================
+         Secciones nuevas: su contenido lo dibuja el .js indicado
+         ============================================================= -->
+
+    <!-- Alumno: semana de entrenamientos asignados (plan.js) -->
+    <section id="plan-view" class="view" role="tabpanel" aria-labelledby="tab-plan" hidden>
+      <div id="plan-root"></div>
+    </section>
+
+    <!-- Alumno y entrenador: km por mes / año y comparativas (progress.js) -->
+    <section id="progress-view" class="view" role="tabpanel" aria-labelledby="tab-progress" hidden>
+      <div id="progress-root"></div>
+    </section>
+
+    <!-- Entrenador: panel de alumnos (athletes.js) -->
+    <section id="athletes-view" class="view" role="tabpanel" aria-labelledby="tab-athletes" hidden>
+      <div id="athletes-root"></div>
+    </section>
+
+    <!-- Entrenador: editor de entrenamientos (builder.js) -->
+    <section id="builder-view" class="view" role="tabpanel" aria-labelledby="tab-builder" hidden>
+      <div id="builder-root"></div>
+    </section>
+
+    <!-- Entrenador: biblioteca de plantillas (builder.js) -->
+    <section id="library-view" class="view" role="tabpanel" aria-labelledby="tab-library" hidden>
+      <div id="library-root"></div>
+    </section>
+
   </main>
 
+  <!-- Hoja modal (ui.js): detalle de entrenos, formularios, cuenta -->
+  <div class="modal" id="modal" hidden>
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true" tabindex="-1"></div>
+  </div>
+
+  <!-- Aviso breve en la parte inferior (ui.js) -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
   <!--
-    Orden de carga: utilidades compartidas -> lógica de cada sección.
+    Orden de carga: utilidades compartidas -> lógica de cada sección ->
+    auth.js al final (comprueba la sesión y arranca la app).
     ?v=N obliga a los navegadores a descargar la versión nueva en lugar de
     usar una copia guardada: súbelo (aquí, en styles.css y en detalle.html)
     cada vez que cambien los archivos .js o .css.
   -->
-  <script src="gpx.js?v=3"></script>
-  <script src="storage.js?v=3"></script>
-  <script src="charts.js?v=3"></script>
-  <script src="app.js?v=3"></script>
-  <script src="dashboard.js?v=3"></script>
+  <script src="gpx.js?v=5"></script>
+  <script src="api.js?v=5"></script>
+  <script src="ui.js?v=5"></script>
+  <script src="structure.js?v=5"></script>
+  <script src="storage.js?v=5"></script>
+  <script src="charts.js?v=5"></script>
+  <script src="app.js?v=5"></script>
+  <script src="dashboard.js?v=5"></script>
+  <script src="plan.js?v=5"></script>
+  <script src="progress.js?v=5"></script>
+  <script src="athletes.js?v=5"></script>
+  <script src="builder.js?v=5"></script>
+  <script src="auth.js?v=5"></script>
 </body>
 </html>

@@ -8,8 +8,10 @@
  *  2. Analiza el recorrido (gpx.js): parciales, series para gráficas.
  *  3. Muestra métricas, ruta, gráficas sincronizadas con el mapa,
  *     parciales por km y todos los datos adicionales del archivo.
- *  4. Permite descargar el .gpx original, eliminar el entrenamiento y
- *     volver al dashboard.
+ *  4. Permite descargar el .gpx original, eliminar el entrenamiento
+ *     (solo el alumno dueño; el entrenador solo lo consulta) y volver.
+ *
+ * Requiere sesión iniciada (si no, muestra un aviso).
  *
  * Depende de: gpx.js (GPX), storage.js (WorkoutStore), charts.js (Charts).
  * =====================================================================
@@ -303,7 +305,7 @@
       : null);
     addDataRow('Potencia media', w.powerAvg ? Math.round(w.powerAvg) + ' W' : null);
     addDataRow('Potencia máxima', w.powerMax ? Math.round(w.powerMax) + ' W' : null);
-    addDataRow('Puntos GPS', w.pointCount.toLocaleString('es'));
+    addDataRow('Puntos GPS', w.pointCount ? w.pointCount.toLocaleString('es') : null);
     addDataRow('Descripción', w.description);
     addDataRow('Generado por', w.creator);
     addDataRow('Archivo', w.fileName);
@@ -319,14 +321,19 @@
     return;
   }
 
-  WorkoutStore.get(workoutId)
-    .then(function (data) {
+  // Entrenamiento + usuario con sesión (para saber si puede eliminarlo)
+  Promise.all([WorkoutStore.get(workoutId), Api.get('api/auth.php')])
+    .then(function (results) {
+      const data = results[0];
+      const me = results[1].user;
       if (!data) {
         showError('Este entrenamiento no existe o fue eliminado.');
         return;
       }
 
       const w = data.summary;
+      // Solo el alumno dueño puede eliminarlo (el entrenador solo lo consulta)
+      deleteButton.hidden = !me || me.id !== w.userId;
       const track = data.track;
       const sport = GPX.sportInfo(w.sport);
       const analysis = GPX.analyze(track);

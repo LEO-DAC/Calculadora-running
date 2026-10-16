@@ -16,7 +16,7 @@
  * Todas las funciones devuelven Promesas. Los cambios se avisan a otras
  * pestañas del mismo navegador con BroadcastChannel.
  *
- * Depende de: gpx.js (GPX) para procesar el archivo en get().
+ * Depende de: api.js (Api) y gpx.js (GPX) para procesar el archivo en get().
  * =====================================================================
  */
 
@@ -28,41 +28,10 @@
   const CHANNEL_NAME = 'calculadora-running-entrenamientos';
 
   /* ------------------------------------------------------------------
-   * 1. Peticiones al servidor
+   * 1. Peticiones al servidor (api.js)
    * ------------------------------------------------------------------ */
 
-  /**
-   * Hace una petición a la API y devuelve el JSON de la respuesta.
-   * Si el servidor responde con error, rechaza con un Error que incluye
-   * el mensaje del servidor, `status` (código HTTP) y `duplicate`.
-   * @param {string} url
-   * @param {RequestInit} [options]
-   * @returns {Promise<*>}
-   */
-  function request(url, options) {
-    return fetch(url, Object.assign({ headers: { Accept: 'application/json' }, cache: 'no-store' }, options))
-      .catch(function () {
-        throw new Error('No se pudo conectar con el servidor. Verifica que Apache esté encendido en XAMPP ' +
-                        'y que este dispositivo esté en la misma red.');
-      })
-      .then(function (response) {
-        return response.text().then(function (text) {
-          let data = null;
-          try { data = text ? JSON.parse(text) : null; } catch (e) { /* respuesta no JSON */ }
-
-          if (!response.ok) {
-            const error = new Error((data && data.error) || 'Error del servidor (' + response.status + ').');
-            error.status = response.status;
-            error.duplicate = response.status === 409;
-            throw error;
-          }
-          if (data === null) {
-            throw new Error('El servidor envió una respuesta inesperada. ¿Está activo PHP en XAMPP?');
-          }
-          return data;
-        });
-      });
-  }
+  const request = Api.request;
 
   /** URL de la API para un entrenamiento. */
   function workoutUrl(id) {
@@ -74,11 +43,13 @@
    * ------------------------------------------------------------------ */
 
   /**
-   * Resúmenes de todos los entrenamientos.
+   * Resúmenes de los entrenamientos del alumno con sesión iniciada o,
+   * si quien pregunta es el entrenador, de uno de sus alumnos.
+   * @param {number} [userId] - Alumno (solo para el entrenador).
    * @returns {Promise<object[]>}
    */
-  function getAll() {
-    return request(API_URL);
+  function getAll(userId) {
+    return request(userId ? API_URL + '?user=' + encodeURIComponent(userId) : API_URL);
   }
 
   /**

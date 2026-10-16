@@ -9,6 +9,10 @@
  *  - Charts.lineStack(contenedor, opciones) -> varias gráficas de línea
  *        apiladas que comparten el eje X (distancia) y un mismo cursor
  *  - Charts.route(contenedor, track)        -> dibujo de la ruta GPS
+ *  - Charts.groupedBar(contenedor, opciones) -> barras de varias series
+ *  - Charts.multiLine(contenedor, opciones)  -> líneas de varias series
+ *  - Charts.spark(valores, color)            -> mini gráfica (texto SVG)
+ *  - Charts.legend(elementos)                -> leyenda (texto HTML)
  *
  * Los colores se pasan como `var(--color)` para respetar el modo
  * claro/oscuro. Los textos se insertan con textContent (nunca HTML).
@@ -524,7 +528,260 @@
   }
 
   /* ------------------------------------------------------------------
-   * 5. API pública
+   * 5. Barras agrupadas (varias series por categoría)
    * ------------------------------------------------------------------ */
-  window.Charts = { bar: bar, lineStack: lineStack, route: route };
+
+  /**
+   * Barras verticales agrupadas: una barra por serie en cada categoría
+   * (p. ej. km por mes de 2025 junto a 2026). Con una sola serie se
+   * etiqueta solo el valor más alto.
+   * @param {HTMLElement} container
+   * @param {object} opts
+   * @param {string[]} opts.labels
+   * @param {Array<{name:string, color:string, values:number[]}>} opts.series
+   * @param {function(number):string} opts.formatTick
+   * @param {function(number):string} opts.formatValue
+   * @param {function(number):string} opts.title - Título del tooltip de la categoría i.
+   * @param {number} [opts.height=240]
+   */
+  function groupedBar(container, opts) {
+    container.textContent = '';
+    const width = container.clientWidth || 320;
+    const height = opts.height || 240;
+    const pad = { top: 22, right: 8, bottom: 26, left: 44 };
+    const plotW = width - pad.left - pad.right;
+    const plotH = height - pad.top - pad.bottom;
+    const n = opts.labels.length;
+    const ns = opts.series.length;
+
+    const svg = svgEl('svg', { width: width, height: height, viewBox: '0 0 ' + width + ' ' + height }, container);
+    const tooltip = createTooltip(container);
+
+    const all = [];
+    opts.series.forEach(function (s) { s.values.forEach(function (v) { all.push(v || 0); }); });
+    const maxValue = Math.max.apply(null, all.concat([0]));
+    const scale = niceTicks(0, maxValue || 10, 4);
+    const y = function (v) { return pad.top + plotH - (v / scale.max) * plotH; };
+    const base = pad.top + plotH;
+
+    scale.ticks.forEach(function (t) {
+      svgEl('line', { x1: pad.left, x2: width - pad.right, y1: y(t), y2: y(t), class: 'chart-grid' }, svg);
+      const label = svgEl('text', { x: pad.left - 8, y: y(t) + 4, 'text-anchor': 'end', class: 'chart-axis-text' }, svg);
+      label.textContent = opts.formatTick(t);
+    });
+
+    const band = plotW / n;
+    const gap = 2; // espacio de 2 px entre barras vecinas
+    const barWidth = Math.max(3, Math.min(24, (band * 0.72 - gap * (ns - 1)) / ns));
+    const groupWidth = barWidth * ns + gap * (ns - 1);
+    const maxIndex = ns === 1 && maxValue > 0 ? opts.series[0].values.indexOf(maxValue) : -1;
+    const columns = [];
+
+    opts.labels.forEach(function (labelText, i) {
+      const cx = pad.left + band * (i + 0.5);
+      const label = svgEl('text', { x: cx, y: height - 8, 'text-anchor': 'middle', class: 'chart-axis-text' }, svg);
+      label.textContent = labelText;
+
+      const bars = [];
+      opts.series.forEach(function (s, j) {
+        const v = s.values[i] || 0;
+        if (v <= 0) return;
+        const x = cx - groupWidth / 2 + j * (barWidth + gap);
+        const path = svgEl('path', { d: roundedBarPath(x, y(v), barWidth, base), class: 'chart-bar-multi' }, svg);
+        path.style.fill = s.color;
+        bars.push(path);
+        if (i === maxIndex) {
+          const valueLabel = svgEl('text', { x: cx, y: y(v) - 6, 'text-anchor': 'middle', class: 'chart-value-label' }, svg);
+          valueLabel.textContent = opts.formatValue(v);
+        }
+      });
+      columns.push(bars);
+    });
+
+    // Zona de interacción: toda la columna; el tooltip lista todas las series
+    opts.labels.forEach(function (labelText, i) {
+      const rows = opts.series.map(function (s) {
+        return { color: s.color, value: opts.formatValue(s.values[i] || 0), label: s.name || '' };
+      });
+      const hit = svgEl('rect', {
+        x: pad.left + band * i, y: pad.top, width: band, height: plotH, class: 'chart-hit', tabindex: 0,
+        role: 'img', 'aria-label': opts.title(i) + ': ' + rows.map(function (r) { return r.label + ' ' + r.value; }).join(', ')
+      }, svg);
+      function show() {
+        columns.forEach(function (bars, j) {
+          bars.forEach(function (b) { b.classList.toggle('is-dim', j !== i); });
+        });
+        tooltip.show(opts.title(i), rows, pad.left + band * (i + 0.5), 4);
+      }
+      function hide() {
+        columns.forEach(function (bars) { bars.forEach(function (b) { b.classList.remove('is-dim'); }); });
+        tooltip.hide();
+      }
+      hit.addEventListener('pointerenter', show);
+      hit.addEventListener('pointerdown', show);
+      hit.addEventListener('focus', show);
+      hit.addEventListener('pointerleave', hide);
+      hit.addEventListener('blur', hide);
+    });
+  }
+
+  /* ------------------------------------------------------------------
+   * 6. Líneas con varias series (km acumulados)
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Gráfica de líneas con un eje Y (desde 0) y varias series, p. ej. km
+   * acumulados de cada año. Cada serie lleva su valor final al extremo;
+   * un cursor vertical muestra todas las series en el punto elegido.
+   * Los valores null cortan la línea (meses aún no transcurridos).
+   * @param {HTMLElement} container
+   * @param {object} opts
+   * @param {string[]} opts.labels - Categorías del eje X.
+   * @param {Array<{name:string, color:string, values:Array<number|null>}>} opts.series
+   * @param {function(number):string} opts.formatTick
+   * @param {function(number):string} opts.formatValue
+   * @param {function(number):string} opts.title - Título del tooltip del punto i.
+   * @param {number} [opts.height=240]
+   */
+  function multiLine(container, opts) {
+    container.textContent = '';
+    const width = container.clientWidth || 320;
+    const height = opts.height || 240;
+    const pad = { top: 16, right: 52, bottom: 26, left: 44 };
+    const plotW = width - pad.left - pad.right;
+    const plotH = height - pad.top - pad.bottom;
+    const n = opts.labels.length;
+
+    const svg = svgEl('svg', { width: width, height: height, viewBox: '0 0 ' + width + ' ' + height }, container);
+    const tooltip = createTooltip(container);
+
+    const all = [];
+    opts.series.forEach(function (s) { s.values.forEach(function (v) { if (v !== null) all.push(v); }); });
+    const scale = niceTicks(0, Math.max.apply(null, all.concat([1])), 4);
+    const x = function (i) { return pad.left + (n === 1 ? plotW / 2 : plotW * i / (n - 1)); };
+    const y = function (v) { return pad.top + plotH - (v / scale.max) * plotH; };
+
+    scale.ticks.forEach(function (t) {
+      svgEl('line', { x1: pad.left, x2: width - pad.right, y1: y(t), y2: y(t), class: 'chart-grid' }, svg);
+      const label = svgEl('text', { x: pad.left - 8, y: y(t) + 4, 'text-anchor': 'end', class: 'chart-axis-text' }, svg);
+      label.textContent = opts.formatTick(t);
+    });
+
+    // Etiquetas del eje X (se omiten algunas si no caben)
+    const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(plotW / 34))));
+    opts.labels.forEach(function (labelText, i) {
+      if (i % every !== 0 && i !== n - 1) return;
+      const label = svgEl('text', { x: x(i), y: height - 8, 'text-anchor': 'middle', class: 'chart-axis-text' }, svg);
+      label.textContent = labelText;
+    });
+
+    const cross = svgEl('line', { y1: pad.top, y2: pad.top + plotH, class: 'chart-crosshair', visibility: 'hidden' }, svg);
+    const dots = [];
+
+    opts.series.forEach(function (s) {
+      let d = '';
+      let open = false;
+      let last = null;
+      s.values.forEach(function (v, i) {
+        if (v === null) { open = false; return; }
+        d += (open ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(v).toFixed(1);
+        open = true;
+        last = i;
+      });
+      if (last === null) { dots.push(null); return; }
+      const line = svgEl('path', { d: d, class: 'chart-line' }, svg);
+      line.style.stroke = s.color;
+      // Punto y valor final de la serie (etiqueta selectiva)
+      const end = svgEl('circle', { cx: x(last), cy: y(s.values[last]), r: 4, class: 'chart-dot' }, svg);
+      end.style.fill = s.color;
+      const endLabel = svgEl('text', { x: x(last) + 8, y: y(s.values[last]) + 4, class: 'chart-value-label' }, svg);
+      endLabel.textContent = opts.formatValue(s.values[last]);
+      const dot = svgEl('circle', { r: 4.5, class: 'chart-dot', visibility: 'hidden' }, svg);
+      dot.style.fill = s.color;
+      dots.push(dot);
+    });
+
+    /** Muestra el cursor en el índice i (o lo oculta con null). */
+    function setIndex(i) {
+      if (i === null) {
+        cross.setAttribute('visibility', 'hidden');
+        dots.forEach(function (d) { if (d) d.setAttribute('visibility', 'hidden'); });
+        tooltip.hide();
+        return;
+      }
+      cross.setAttribute('x1', x(i));
+      cross.setAttribute('x2', x(i));
+      cross.setAttribute('visibility', 'visible');
+      const rows = [];
+      opts.series.forEach(function (s, j) {
+        const v = s.values[i];
+        if (dots[j]) {
+          if (v !== null) {
+            dots[j].setAttribute('cx', x(i));
+            dots[j].setAttribute('cy', y(v));
+            dots[j].setAttribute('visibility', 'visible');
+          } else {
+            dots[j].setAttribute('visibility', 'hidden');
+          }
+        }
+        rows.push({ color: s.color, value: v !== null ? opts.formatValue(v) : '—', label: s.name });
+      });
+      tooltip.show(opts.title(i), rows, x(i), 4);
+    }
+
+    function indexFromPointer(e) {
+      const rect = svg.getBoundingClientRect();
+      const t = Math.min(1, Math.max(0, (e.clientX - rect.left - pad.left) / plotW));
+      return Math.round(t * (n - 1));
+    }
+    container.onpointermove = function (e) { setIndex(indexFromPointer(e)); };
+    container.onpointerdown = function (e) { setIndex(indexFromPointer(e)); };
+    container.onpointerleave = function () { setIndex(null); };
+  }
+
+  /* ------------------------------------------------------------------
+   * 7. Mini gráfica (sparkline) y leyenda
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Mini gráfica de línea sin ejes (SVG en texto), p. ej. km semanales.
+   * @param {number[]} values
+   * @param {string} color
+   * @returns {string}
+   */
+  function spark(values, color) {
+    const W = 120;
+    const H = 32;
+    const max = Math.max.apply(null, values.concat([1]));
+    const points = values.map(function (v, i) {
+      return (i / Math.max(1, values.length - 1) * W).toFixed(1) + ',' + (H - 3 - (v / max) * (H - 6)).toFixed(1);
+    }).join(' ');
+    return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true">' +
+           '<polyline points="' + points + '" fill="none" style="stroke:' + color +
+           '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  }
+
+  /**
+   * Leyenda HTML (para gráficas con 2 o más series).
+   * @param {Array<{color:string, name:string}>} items
+   * @returns {string}
+   */
+  function legend(items) {
+    return '<div class="chart-legend">' + items.map(function (item) {
+      return '<span><i style="background:' + item.color + '"></i>' + UI.esc(item.name) + '</span>';
+    }).join('') + '</div>';
+  }
+
+  /* ------------------------------------------------------------------
+   * 8. API pública
+   * ------------------------------------------------------------------ */
+  window.Charts = {
+    bar: bar,
+    groupedBar: groupedBar,
+    multiLine: multiLine,
+    lineStack: lineStack,
+    route: route,
+    spark: spark,
+    legend: legend
+  };
 })();

@@ -13,7 +13,11 @@
  *  - Lista de entrenamientos con botón para ver el detalle en otra ventana.
  *  - Gráfica de km por mes (charts.js).
  *
- * Depende de: gpx.js (GPX), storage.js (WorkoutStore), charts.js (Charts).
+ *  - Marca con "✓" las actividades de días con un entreno del plan hecho.
+ *
+ * Solo para alumnos. Se carga al abrir la pestaña (App.register).
+ * Depende de: gpx.js (GPX), api.js (Api), ui.js (UI), storage.js
+ * (WorkoutStore), charts.js (Charts) y app.js (App).
  * =====================================================================
  */
 
@@ -62,6 +66,7 @@
   const state = {
     workouts: [],   // resúmenes de todos los entrenamientos
     serverError: null, // mensaje si no se pudo conectar con el servidor
+    doneByDate: {},    // "2026-10-15" -> nombre del entreno del plan completado ese día
     year: new Date().getFullYear(), // año seleccionado en el filtro
     sport: 'all',   // actividad seleccionada ('all' = todas)
     showAll: false  // lista completa o solo los primeros
@@ -91,9 +96,17 @@
    */
   function load(silent) {
     if (loading) return loading;
-    loading = WorkoutStore.getAll()
-      .then(function (workouts) {
-        state.workouts = workouts;
+    // Entrenamientos + plan (para marcar los días con un entreno del plan hecho)
+    loading = Promise.all([
+      WorkoutStore.getAll(),
+      Api.get('api/assignments.php').catch(function () { return []; })
+    ])
+      .then(function (results) {
+        state.workouts = results[0];
+        state.doneByDate = {};
+        results[1].forEach(function (a) {
+          if (a.status === 'done') state.doneByDate[a.date] = a.name;
+        });
         state.serverError = null;
       })
       .catch(function (err) {
@@ -381,6 +394,14 @@
       const name = document.createElement('span');
       name.className = 'workout-name';
       name.textContent = w.name;
+      // Insignia si ese día se completó un entreno del plan
+      const planDone = state.doneByDate[UI.iso(workoutDate(w))];
+      if (planDone) {
+        const badge = document.createElement('span');
+        badge.className = 'plan-done-badge';
+        badge.textContent = '✓ ' + planDone;
+        name.appendChild(badge);
+      }
       const meta = document.createElement('span');
       meta.className = 'workout-meta';
       const metaParts = [info.label, fmt.date(w.startTime || w.importedAt)];
@@ -537,17 +558,35 @@
    * 7. Inicio y actualización automática
    * ------------------------------------------------------------------ */
 
+  /** true cuando la sección ya se abrió al menos una vez. */
+  let started = false;
+
+  /** ¿La sección está visible en este momento? */
+  function isVisible() {
+    return !document.getElementById('training-view').hidden;
+  }
+
   // Si otra pestaña (detalle) elimina un entrenamiento, recarga los datos
-  WorkoutStore.onChange(function () { load(true); });
+  WorkoutStore.onChange(function () { if (started) load(true); });
 
   // Al volver a la app (cambiar de pestaña o desbloquear el teléfono),
   // recarga para ver lo que se importó desde otros dispositivos
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') load(true);
+    if (started && isVisible() && document.visibilityState === 'visible') load(true);
   });
 
-  render(); // estado inicial (vacío) mientras se leen los datos del servidor
-  load().then(function () {
-    if (!state.serverError) migrateLegacy();
+  // Se registra en app.js: se carga al abrir la pestaña "Entrenos"
+  App.register('entrenos', {
+    show: function () {
+      if (started) {
+        load(true);
+        return;
+      }
+      started = true;
+      render(); // estado inicial (vacío) mientras se leen los datos del servidor
+      load().then(function () {
+        if (!state.serverError) migrateLegacy();
+      });
+    }
   });
 })();

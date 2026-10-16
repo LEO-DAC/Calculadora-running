@@ -1,160 +1,156 @@
 # Calculadora de Running
 
 Aplicación para calcular ritmos de carrera, km en backyard, y muchos datos más relacionados con el running.
-Web minimalista con estilo iOS. Incluye tres secciones, accesibles desde el selector superior:
+Web minimalista con estilo iOS para **entrenadores y sus alumnos**: los alumnos importan sus
+actividades de Strava (GPX) y siguen su plan; el entrenador crea entrenamientos, los asigna y
+sigue el avance de cada alumno.
 
-| Sección | Para qué sirve |
+## Roles y secciones
+
+| Rol | Secciones |
 |---|---|
-| **Ritmo** | Calcula el ritmo por km a partir de una distancia y un tiempo |
-| **Backyard** | Calcula los km totales de un backyard ultra (vueltas de 6.7 km) |
-| **Entrenos** | Dashboard de actividades importadas desde archivos GPX (Strava) |
+| **Alumno** | Entrenos · Mi plan · Progreso · Ritmo · Backyard |
+| **Entrenador** | Alumnos · Crear entreno · Biblioteca · Progreso |
 
-Cada sección se puede abrir directamente con la URL: `index.html#ritmo`, `index.html#backyard` o `index.html#entrenos`.
+Cada sección se puede abrir directamente con la URL: `index.html#entrenos`, `#plan`, `#progreso`,
+`#ritmo`, `#backyard`, `#alumnos`, `#crear`, `#biblioteca`.
 
-## 1. Ritmo
-Calcula el ritmo de carrera por kilómetro.
+### Cuentas e inicio de sesión
+- La **primera vez** que se abre la app aparece "Crear cuenta de entrenador".
+- El entrenador da de alta a sus alumnos en **Alumnos → + Agregar alumno** (nombre, correo,
+  contraseña temporal y objetivo). El alumno inicia sesión con ese correo y contraseña.
+- Desde el botón de cuenta (arriba a la derecha) se cambia la contraseña y se cierra sesión.
+- Si un alumno olvida su contraseña, el entrenador le asigna una nueva desde **Editar (⋯)**.
 
-- **Distancia:** 5K, 10K, 15K, 21K (media maratón, 21.0975 km), Maratón (42.195 km) u **Otro** (distancia personalizada).
-- **Tiempo:** horas, minutos y segundos.
-- **Resultado:** ritmo (min/km), velocidad (km/h), distancia y tiempo total.
+## Secciones del alumno
 
-## 2. Backyard
-Calcula los kilómetros totales de un backyard ultra (vueltas de **6.7 km**).
+### Entrenos (dashboard)
+- **Importar entrenamiento:** uno o varios archivos `.gpx` (también arrastrar y soltar en escritorio).
+  En Strava: actividad → menú **⋯** → **Exportar GPX**.
+- Validaciones con `alert`: solo `.gpx`, formato GPX válido con puntos, sin duplicados.
+- Se lee todo lo que trae el archivo (`gpx.js`): ruta, altitud, hora, frecuencia cardiaca,
+  cadencia, temperatura, potencia, nombre y tipo de actividad. Se calcula distancia, tiempo en
+  movimiento (sin pausas), ritmo, desnivel, parciales por km y series para las gráficas.
+- Filtros por año y actividad, resumen (km totales, tiempo, ritmo, desnivel), lista con
+  **Ver detalle ›** y gráfica de km por mes. Las actividades de días con un entreno del plan
+  completado muestran la insignia **✓ nombre del entreno**.
 
-- **Vueltas completas:** número entero.
-- **Vuelta incompleta (opcional):** interruptor que habilita un campo de km extra.
-- **Resultado:** `km totales = vueltas × 6.7 + km extra`.
+### Detalle (`detalle.html`)
+Métricas, mapa de la ruta, gráficas de altitud / ritmo / FC / cadencia sincronizadas con el mapa,
+parciales por km, todos los datos del archivo, **Descargar archivo GPX** y **Eliminar** (solo el
+alumno dueño; el entrenador puede consultarlo pero no borrarlo).
 
-## 3. Entrenos (dashboard de entrenamientos)
+### Mi plan
+- Mensaje del entrenador.
+- Semana actual (con flechas para navegar): los entrenos asignados por día, coloreados por tipo,
+  o "Descanso".
+- Avance semanal: km corridos (importados) frente a km planificados y sesiones completadas.
+- Próximos entrenamientos (los atrasados se marcan).
+- Al tocar un entreno: estructura, distancia y duración estimadas, indicaciones del entrenador y
+  **Marcar como hecho / pendiente**.
 
-### Carga de archivos
-- Botón **Importar entrenamiento**: abre el selector de archivos y acepta uno o **varios** archivos `.gpx` a la vez.
-- En escritorio también se pueden **arrastrar y soltar** los archivos sobre la tarjeta de importación.
-- Para obtener el archivo en Strava: abre la actividad → menú **⋯** → **Exportar GPX**.
-- Validaciones (con aviso `alert`):
-  - solo se aceptan archivos con extensión `.gpx`;
-  - el archivo debe ser XML válido con formato GPX y tener puntos de recorrido;
-  - no se importa dos veces la misma actividad (misma hora de inicio y distancia).
+### Progreso (también para el entrenador, eligiendo al alumno)
+Solo cuenta actividades de carrera.
+- **Por mes:** km de cada mes del año contra el año anterior, mejor mes, promedio mensual y tabla
+  mensual con variación. El año en curso se compara con el anterior **a la misma fecha**.
+- **Por año:** total histórico, mejor año, km por año y km acumulados por año.
+- **Comparar:** mes vs mes (km acumulados día a día) o año vs año (año completo, a la misma
+  fecha, km por mes y acumulados), con variaciones ▲/▼.
 
-### Qué datos se leen del GPX
-Se procesa todo lo que trae el archivo (`gpx.js`):
+### Ritmo y Backyard
+- **Ritmo:** distancia (5K, 10K, 15K, 21K, maratón u otra) + tiempo → ritmo por km y velocidad.
+- **Backyard:** vueltas de 6.7 km + km extra opcionales → km totales.
 
-- **Ruta:** latitud y longitud de cada punto (`<trkpt>`, o `<rtept>` en rutas).
-- **Altitud** (`<ele>`), **hora** (`<time>`).
-- **Extensiones de Garmin/Strava** (`<gpxtpx:TrackPointExtension>`): frecuencia cardiaca (`hr`), cadencia (`cad`), temperatura (`atemp`) y potencia (`power`).
-- **Metadatos:** nombre, tipo de actividad (`<type>`), descripción y app que generó el archivo (`creator`).
+## Secciones del entrenador
 
-El archivo se procesa **en el navegador**; al servidor se envían el archivo original y el resumen calculado.
+### Alumnos
+Indicadores del equipo (alumnos, km del mes, cumplimiento promedio, entrenos pendientes) y una
+fila por alumno: objetivo, km del mes, último entreno, **cumplimiento** (entrenos hechos / asignados
+en las últimas 4 semanas), km de las últimas 12 semanas y acciones **Progreso**, **Asignar** y
+**Editar** (objetivo, mensaje para el alumno, nueva contraseña, eliminar).
 
-Con esos datos se calcula:
+### Crear entreno
+- **Tipo:** Repeticiones, Fondo, Fartlek, Tempo, Cuestas o Rodaje suave (carga una estructura base
+  de la biblioteca).
+- **Datos:** nombre, fecha, alumnos a los que se asigna e indicaciones.
+- **Estructura por bloques:** calentamiento, bloque continuo, repeticiones (trabajo +
+  recuperación) y enfriamiento. Cada paso tiene cantidad (km, m, min o s), ritmo (m:ss /km) y zona
+  (Z1–Z5). Los bloques se pueden subir, bajar y eliminar.
+- **Vista previa en vivo:** distancia y duración estimadas, número de bloques y gráfico de
+  intensidad por zona.
+- **Asignar a N alumnos** o **Guardar en biblioteca**.
 
-- distancia (fórmula de Haversine entre puntos GPS);
-- tiempo total, **tiempo en movimiento** (excluye pausas: tramos a menos de 0.5 m/s) y tiempo detenido;
-- ritmo y velocidad medios, desnivel positivo/negativo (altitud suavizada), altitud mínima/máxima;
-- FC, cadencia, temperatura y potencia (media y máxima);
-- parciales por kilómetro y series remuestreadas para las gráficas.
+### Biblioteca
+Plantillas filtrables por tipo, con **Usar como base**, **Ver** y eliminar. Cada entrenador
+empieza con 6 plantillas de ejemplo (`api/default-templates.json`). Al asignar se guarda una copia:
+editar o borrar una plantilla no cambia los entrenos ya asignados.
 
-El tipo de actividad (Carrera, Ciclismo, Caminata, Senderismo, Natación) se toma de `<type>` o, si no existe, del nombre de la actividad. La cadencia de carrera se multiplica por 2 para mostrarla en pasos por minuto, como hace Strava.
+## Dónde se guardan los datos
+En el servidor (la computadora donde corre XAMPP), así que todos los dispositivos de la red ven lo mismo.
 
-### Dashboard
-- **Filtros** por año y por tipo de actividad: afectan al resumen, la lista y la gráfica.
-- **Resumen:** km totales del filtro (número principal), número de entrenamientos, tiempo en movimiento, ritmo medio (solo actividades medidas en ritmo; en ciclismo, velocidad media) y desnivel positivo. Debajo, el total histórico.
-- **Lista de entrenamientos:** nombre, tipo, fecha, ritmo y km, con el botón **Ver detalle ›**.
-- **Gráfica de km por mes** del año seleccionado; al pasar el cursor o tocar una barra muestra los km y el número de entrenamientos.
+| Tabla (MySQL `calculadora_running`) | Contenido |
+|---|---|
+| `users` | Entrenadores y alumnos (contraseña con `password_hash`, nunca en texto), objetivo, mensaje del entrenador |
+| `workouts` | Entrenamientos importados de cada alumno (resumen en JSON) |
+| `templates` | Biblioteca de plantillas de cada entrenador |
+| `assignments` | Plan de cada alumno: fecha, estructura, indicaciones y estado |
+| `app_meta` | Versión de la estructura de la base de datos |
 
-### Detalle del entrenamiento (`detalle.html`)
-Se abre en otra ventana o pestaña desde **Ver detalle ›** (`detalle.html?id=...`):
+- Los archivos `.gpx` originales se guardan en `api/storage/gpx/<id>.gpx` (bloqueada para acceso
+  directo y excluida de GitHub).
+- Las tablas se crean y actualizan solas (`api/db.php` + `api/schema.sql`).
+- **Respaldo:** copia `api/storage/gpx/` y exporta la base `calculadora_running` desde phpMyAdmin.
 
-- tarjetas con las métricas principales y el **mejor km**;
-- **mapa de la ruta** (SVG con proyección Mercator) con inicio, fin y enlace a OpenStreetMap;
-- gráficas de **altitud, ritmo (o velocidad), frecuencia cardiaca y cadencia**, que comparten el eje de distancia; al recorrerlas, la posición se marca en el mapa;
-- tabla de **parciales por km** con barras comparativas (el km más rápido en negrita);
-- lista con **todos los datos** del archivo;
-- botón **Descargar archivo GPX** (el original guardado en el servidor);
-- botón **Eliminar entrenamiento** (con confirmación); el dashboard se actualiza solo.
+## API (`api/`)
+Todas las respuestas son JSON y requieren sesión (salvo `auth.php`). Las peticiones que modifican
+datos deben enviar la cabecera `X-Requested-With` (protección CSRF; la agrega `api.js`).
 
-### Dónde se guardan los entrenamientos
-Los entrenamientos se guardan **en el servidor** (la computadora donde corre XAMPP), así que
-**todos los dispositivos de la red ven los mismos datos**: lo que importas desde el celular aparece
-en la computadora y viceversa.
-
-| Qué | Dónde | Contenido |
+| Archivo | Quién | Qué hace |
 |---|---|---|
-| Datos del entrenamiento | MySQL: base `calculadora_running`, tabla `workouts` | Nombre, tipo, fecha, km y el resumen completo en JSON (ritmo, FC, desnivel…) |
-| Archivo original | `api/storage/gpx/<id>.gpx` | El archivo `.gpx` tal como se exportó de Strava |
+| `auth.php` | todos | Sesión actual, configuración inicial, login, logout, cambio de contraseña |
+| `athletes.php` | entrenador | Listar, crear, editar y eliminar alumnos |
+| `workouts.php` | alumno / entrenador | Importar, listar, ver, descargar y eliminar entrenamientos |
+| `templates.php` | entrenador | Biblioteca de plantillas |
+| `assignments.php` | entrenador / alumno | Asignar entrenos; el alumno los marca como hechos |
 
-- La base de datos y la tabla **se crean solas** la primera vez (`api/db.php` usa `api/schema.sql`).
-- Los puntos GPS no se duplican en MySQL: la página de detalle descarga el `.gpx` original y lo procesa en el navegador.
-- La carpeta `api/storage/` está bloqueada para acceso directo (`.htaccess`); los archivos solo se descargan mediante la API.
-- Los archivos `.gpx` y `api/config.local.php` **no se suben a GitHub** (`.gitignore`).
-- **Respaldo:** copia la carpeta `api/storage/gpx/` y exporta la base `calculadora_running` desde phpMyAdmin.
-- El dashboard se actualiza solo al volver a la app, para mostrar lo importado desde otros dispositivos.
+Permisos: el alumno solo ve y modifica lo suyo; el entrenador solo ve a **sus** alumnos y no puede
+borrar sus actividades. Las estructuras de entrenamiento se validan en el servidor (`structure.php`).
 
-**Migración desde la versión anterior:** antes, los entrenamientos se guardaban solo en el navegador
-(IndexedDB). Al abrir el dashboard en un navegador que todavía tiene esos datos, la app ofrece
-subirlos al servidor una sola vez (los reconstruye como archivo GPX) y luego los borra del navegador.
-
-### API (`api/workouts.php`)
-Backend en **PHP + MySQL** (el que trae XAMPP). Todas las respuestas son JSON:
-
-| Método | URL | Acción |
-|---|---|---|
-| `GET` | `api/workouts.php` | Lista de entrenamientos (resúmenes) |
-| `GET` | `api/workouts.php?id=X` | Resumen de un entrenamiento |
-| `GET` | `api/workouts.php?id=X&file=1` | Descarga el `.gpx` original |
-| `POST` | `api/workouts.php` | Guarda uno nuevo (`multipart/form-data`: `gpx` = archivo, `summary` = JSON) |
-| `DELETE` | `api/workouts.php?id=X` | Elimina el entrenamiento y su archivo |
-
-Validaciones del servidor: el archivo debe ser GPX y pesar como máximo 40 MB; el resumen solo acepta
-campos conocidos con el tipo correcto; los duplicados (misma hora de inicio y distancia) se
-rechazan con código `409`; todas las consultas son preparadas (sin inyección SQL).
-
-## Características
-- Frontend en HTML, CSS y JavaScript puros (sin dependencias ni librerías externas).
-- Backend en PHP con base de datos MySQL/MariaDB.
-- Gráficas y mapa dibujados en SVG.
-- Diseño responsivo: iPhone, Android, iPad y navegadores de escritorio.
-- Modo claro y oscuro automático.
-- Validación: solo valores numéricos; avisos con `alert` si faltan datos.
-
-## Estructura
+## Estructura del proyecto
 | Archivo | Contenido |
 |---|---|
-| `index.html` | Interfaz: selector de secciones, calculadoras y dashboard |
-| `detalle.html` | Página de detalle de un entrenamiento |
-| `styles.css` | Estilos (tema iOS, responsivo, modo oscuro, gráficas) |
-| `app.js` | Calculadoras Ritmo y Backyard; cambio de sección |
-| `gpx.js` | Lectura y análisis de archivos GPX |
-| `storage.js` | Comunicación con la API; migración de los datos antiguos del navegador |
-| `charts.js` | Gráficas de barras, de línea y mapa de la ruta (SVG) |
-| `dashboard.js` | Lógica del dashboard: importación, filtros, resumen, lista y gráfica |
-| `detalle.js` | Lógica de la página de detalle |
-| `api/workouts.php` | API REST de entrenamientos |
-| `api/db.php` | Conexión a MySQL y respuestas JSON |
-| `api/config.php` | Configuración (base de datos, carpeta de archivos, límites) |
-| `api/schema.sql` | Estructura de la tabla `workouts` |
-| `api/storage/` | Archivos `.gpx` subidos (no se suben a GitHub) |
+| `index.html` / `detalle.html` | Interfaz principal / detalle de una actividad |
+| `styles.css` | Estilos (tema iOS, responsivo, modo oscuro) |
+| `auth.js` | Pantalla de acceso, cuenta del usuario y arranque de la app |
+| `app.js` | Calculadoras Ritmo y Backyard; navegación por rol (`App`) |
+| `api.js` / `ui.js` | Peticiones al servidor / utilidades de interfaz (modal, avisos, formatos) |
+| `gpx.js` / `storage.js` | Lectura de GPX / entrenamientos en el servidor |
+| `structure.js` | Tipos y estructura de los entrenamientos (cálculos y dibujo) |
+| `charts.js` | Gráficas y mapa en SVG |
+| `dashboard.js`, `plan.js`, `progress.js` | Secciones del alumno |
+| `athletes.js`, `builder.js` | Secciones del entrenador (Alumnos; Crear entreno y Biblioteca) |
+| `api/*.php` | Backend en PHP |
+
+Frontend en HTML, CSS y JavaScript puros (sin librerías); backend en PHP con MySQL/MariaDB.
+Al cambiar archivos `.js` o `.css`, sube el número `?v=N` en `index.html` y `detalle.html`
+para que los navegadores descarguen la versión nueva.
 
 ## Uso
-1. Copia la carpeta dentro de `htdocs` de XAMPP.
-2. En el **XAMPP Control Panel**, inicia **Apache** y **MySQL**.
-3. Abre `http://localhost/<ruta-de-la-carpeta>/index.html`. La base de datos se crea sola.
-4. Desde otro dispositivo de la misma red Wi-Fi, usa la IP de la computadora en lugar de `localhost`
+1. Copia la carpeta dentro de `htdocs` de XAMPP e inicia **Apache** y **MySQL**.
+2. Abre `http://localhost/<ruta-de-la-carpeta>/index.html` y crea la cuenta del entrenador.
+3. Da de alta a tus alumnos en **Alumnos**.
+4. Desde otros dispositivos de la misma red, usa la IP de la computadora en lugar de `localhost`
    (los espacios del nombre de la carpeta se escriben como `%20`).
 
-La configuración por defecto usa el usuario `root` sin contraseña de XAMPP. Para cambiarla, crea
-`api/config.local.php` (ver instrucciones en `api/config.php`).
+Para cambiar la conexión a la base de datos, crea `api/config.local.php` (ver `api/config.php`).
 
-## Próximo paso: publicarlo en internet
-La app ya está separada en frontend + API, así que puede subirse a un hosting con PHP y MySQL. Antes:
-
-1. **Agregar inicio de sesión** (usuarios y contraseñas): hoy la API no tiene autenticación porque
-   solo se usa en la red local; en internet cualquiera podría ver o borrar los entrenamientos.
+## Publicarlo en internet
+Ya tiene inicio de sesión y permisos por rol. Además:
+1. Usar **HTTPS** (la cookie de sesión se marca como segura automáticamente).
 2. Crear `api/config.local.php` con las credenciales del hosting y `'debug' => false`.
-3. Si el hosting no permite crear bases de datos desde PHP, poner `'auto_create' => false` y
-   ejecutar `api/schema.sql` desde su phpMyAdmin.
-4. Usar **HTTPS**.
-5. Subir también la carpeta `api/storage/gpx/` (o migrar los datos) si se quieren conservar los entrenamientos.
+3. Si el hosting no permite crear bases de datos desde PHP: `'auto_create' => false` y ejecutar
+   `api/schema.sql` en su phpMyAdmin.
+4. Recomendado: limitar los intentos de inicio de sesión fallidos.
 
 ## Licencia
 Distribuido bajo la licencia GNU GPL v3. Consulta el archivo [LICENSE](LICENSE).

@@ -1,0 +1,67 @@
+[
+  {
+    "tipo": "rep",
+    "name": "6 × 800 m",
+    "description": "Series a ritmo 5K con recuperación trotando",
+    "steps": [
+      { "k": "warm", "v": 2, "u": "km", "p": "6:00", "z": 2 },
+      { "k": "rep", "n": 6, "steps": [
+        { "k": "work", "v": 800, "u": "m", "p": "4:10", "z": 5 },
+        { "k": "rec", "v": 400, "u": "m", "p": "6:30", "z": 1 }
+      ] },
+      { "k": "cool", "v": 1.5, "u": "km", "p": "6:15", "z": 1 }
+    ]
+  },
+  {
+    "tipo": "fondo",
+    "name": "Fondo 16 km",
+    "description": "Ritmo conversacional en zona 2",
+    "steps": [
+      { "k": "steady", "v": 16, "u": "km", "p": "5:50", "z": 2 }
+    ]
+  },
+  {
+    "tipo": "fartlek",
+    "name": "Fartlek 8 × (1′ / 2′)",
+    "description": "Cambios de ritmo por sensaciones",
+    "steps": [
+      { "k": "warm", "v": 10, "u": "min", "p": "6:00", "z": 2 },
+      { "k": "rep", "n": 8, "steps": [
+        { "k": "work", "v": 1, "u": "min", "p": "4:20", "z": 4 },
+        { "k": "rec", "v": 2, "u": "min", "p": "6:10", "z": 2 }
+      ] },
+      { "k": "cool", "v": 8, "u": "min", "p": "6:15", "z": 1 }
+    ]
+  },
+  {
+    "tipo": "tempo",
+    "name": "Tempo 5 km",
+    "description": "Ritmo de umbral sostenido",
+    "steps": [
+      { "k": "warm", "v": 2, "u": "km", "p": "6:00", "z": 2 },
+      { "k": "steady", "v": 5, "u": "km", "p": "4:45", "z": 4 },
+      { "k": "cool", "v": 2, "u": "km", "p": "6:10", "z": 1 }
+    ]
+  },
+  {
+    "tipo": "cuestas",
+    "name": "10 × 45″ en cuesta",
+    "description": "Fuerza en pendiente del 6–8 %",
+    "steps": [
+      { "k": "warm", "v": 15, "u": "min", "p": "6:00", "z": 2 },
+      { "k": "rep", "n": 10, "steps": [
+        { "k": "work", "v": 45, "u": "s", "p": "4:30", "z": 5 },
+        { "k": "rec", "v": 90, "u": "s", "p": "7:30", "z": 1 }
+      ] },
+      { "k": "cool", "v": 10, "u": "min", "p": "6:15", "z": 1 }
+    ]
+  },
+  {
+    "tipo": "suave",
+    "name": "Rodaje 8 km",
+    "description": "Recuperación activa",
+    "steps": [
+      { "k": "steady", "v": 8, "u": "km", "p": "6:10", "z": 1 }
+    ]
+  }
+]

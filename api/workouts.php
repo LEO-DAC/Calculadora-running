@@ -2,23 +2,24 @@
 /**
  * =====================================================================
  * Archivo: api/workouts.php
- * Descripción: API REST de entrenamientos. Guarda los datos en MySQL y
- * los archivos .gpx originales en api/storage/gpx/, para que todos los
- * dispositivos de la red vean los mismos entrenamientos.
+ * Descripción: API de entrenamientos importados. Guarda los datos en
+ * MySQL y los archivos .gpx originales en api/storage/gpx/.
+ *
+ * Requiere sesión iniciada. Permisos:
+ *   - Alumno: ve, importa y elimina SUS entrenamientos.
+ *   - Entrenador: ve (solo lectura) los entrenamientos de SUS alumnos.
  *
  * Rutas (todas responden JSON, salvo la descarga del archivo):
- *   GET    workouts.php              -> lista de resúmenes (más reciente primero)
+ *   GET    workouts.php              -> alumno: sus resúmenes
+ *   GET    workouts.php?user=X       -> entrenador: resúmenes del alumno X
  *   GET    workouts.php?id=X         -> resumen de un entrenamiento
  *   GET    workouts.php?id=X&file=1  -> archivo .gpx original
- *   POST   workouts.php              -> guarda uno nuevo (multipart/form-data)
+ *   POST   workouts.php              -> alumno: guarda uno nuevo (multipart/form-data)
  *            campos: gpx (archivo), summary (JSON calculado por gpx.js)
- *   DELETE workouts.php?id=X         -> elimina un entrenamiento y su archivo
+ *   DELETE workouts.php?id=X         -> alumno: elimina uno suyo y su archivo
  *
- * Códigos de error: 400 datos no válidos, 404 no existe,
- * 409 entrenamiento duplicado, 413 archivo muy grande, 500 error interno.
- *
- * Nota: por ahora no hay usuarios ni contraseñas (uso en red local).
- * Antes de publicar en internet hay que agregar autenticación.
+ * Códigos de error: 400 datos no válidos, 401 sin sesión, 403 sin permiso,
+ * 404 no existe, 409 duplicado, 413 archivo muy grande, 500 error interno.
  * =====================================================================
  */
 
@@ -111,13 +112,18 @@ function gpxPath(string $id): string
     return config()['gpx_dir'] . '/' . $id . '.gpx';
 }
 
-/** Busca un entrenamiento por id (o responde 404). */
-function findWorkout(PDO $pdo, string $id): array
+/**
+ * Busca un entrenamiento que el usuario puede ver: el suyo o, si es
+ * entrenador, el de uno de sus alumnos. Si no, responde 404 (no se
+ * revela si existe).
+ */
+function findVisibleWorkout(PDO $pdo, array $user, string $id): array
 {
-    $stmt = $pdo->prepare('SELECT id, file_name, summary_json FROM workouts WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT w.*, u.coach_id FROM workouts w JOIN users u ON u.id = w.user_id WHERE w.id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
-    if (!$row) {
+    $userId = (int) $user['id'];
+    if (!$row || ((int) $row['user_id'] !== $userId && (int) $row['coach_id'] !== $userId)) {
         fail(404, 'Este entrenamiento no existe o fue eliminado.');
     }
     return $row;
@@ -128,6 +134,7 @@ function rowToSummary(array $row): array
 {
     $summary = json_decode($row['summary_json'], true) ?: [];
     $summary['id'] = $row['id'];
+    $summary['userId'] = (int) $row['user_id'];
     return $summary;
 }
 
@@ -135,26 +142,28 @@ function rowToSummary(array $row): array
  * 3. Acciones
  * ------------------------------------------------------------------ */
 
-/** GET: lista de entrenamientos. */
-function listWorkouts(PDO $pdo): void
+/** GET: lista de entrenamientos de un alumno. */
+function listWorkouts(PDO $pdo, array $user): void
 {
-    $rows = $pdo->query(
-        'SELECT id, summary_json FROM workouts ORDER BY COALESCE(start_time, imported_at) DESC'
-    )->fetchAll();
-    respond(200, array_map('rowToSummary', $rows));
-}
-
-/** GET ?id=X: resumen de un entrenamiento. */
-function getWorkout(PDO $pdo, string $id): void
-{
-    respond(200, rowToSummary(findWorkout($pdo, $id)));
+    $ownerId = (int) $user['id'];
+    if ($user['role'] === 'coach') {
+        $ownerId = (int) ($_GET['user'] ?? 0);
+        $check = $pdo->prepare("SELECT 1 FROM users WHERE id = ? AND coach_id = ? AND role = 'athlete'");
+        $check->execute([$ownerId, $user['id']]);
+        if (!$check->fetchColumn()) {
+            fail(404, 'Ese alumno no existe.');
+        }
+    }
+    $stmt = $pdo->prepare('SELECT id, user_id, summary_json FROM workouts WHERE user_id = ?
+                           ORDER BY COALESCE(start_time, imported_at) DESC');
+    $stmt->execute([$ownerId]);
+    respond(200, array_map('rowToSummary', $stmt->fetchAll()));
 }
 
 /** GET ?id=X&file=1: descarga el archivo .gpx original. */
-function sendGpxFile(PDO $pdo, string $id): void
+function sendGpxFile(array $row): void
 {
-    $row = findWorkout($pdo, $id);
-    $path = gpxPath($id);
+    $path = gpxPath($row['id']);
     if (!is_file($path)) {
         fail(404, 'No se encontró el archivo GPX de este entrenamiento.');
     }
@@ -169,10 +178,11 @@ function sendGpxFile(PDO $pdo, string $id): void
     exit;
 }
 
-/** POST: guarda un entrenamiento nuevo (archivo + resumen). */
-function createWorkout(PDO $pdo): void
+/** POST: guarda un entrenamiento nuevo (archivo + resumen) del alumno. */
+function createWorkout(PDO $pdo, array $user): void
 {
     $c = config();
+    $userId = (int) $user['id'];
 
     // Si el archivo supera post_max_size, PHP descarta todo el formulario
     if (empty($_FILES) && empty($_POST) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
@@ -204,10 +214,10 @@ function createWorkout(PDO $pdo): void
         $summary['fileName'] = mb_substr((string) $upload['name'], 0, 255) ?: 'entrenamiento.gpx';
     }
 
-    // 3. Duplicados: misma hora de inicio y misma distancia (±10 m)
+    // 3. Duplicados del mismo alumno: misma hora de inicio y distancia (±10 m)
     if ($summary['startTime'] !== null) {
-        $stmt = $pdo->prepare('SELECT id FROM workouts WHERE start_time = ? AND ABS(distance_km - ?) < 0.01');
-        $stmt->execute([$summary['startTime'], $summary['distanceKm']]);
+        $stmt = $pdo->prepare('SELECT id FROM workouts WHERE user_id = ? AND start_time = ? AND ABS(distance_km - ?) < 0.01');
+        $stmt->execute([$userId, $summary['startTime'], $summary['distanceKm']]);
         if ($stmt->fetch()) {
             fail(409, 'Este entrenamiento ya estaba importado.', ['duplicate' => true]);
         }
@@ -215,7 +225,7 @@ function createWorkout(PDO $pdo): void
 
     // 4. Guarda el archivo y la fila (si algo falla, no deja restos)
     $id = bin2hex(random_bytes(8));
-    $summary['importedAt'] = (int) round(microtime(true) * 1000);
+    $summary['importedAt'] = nowMs();
 
     if (!is_dir($c['gpx_dir']) && !mkdir($c['gpx_dir'], 0775, true) && !is_dir($c['gpx_dir'])) {
         throw new RuntimeException('No se pudo crear la carpeta de archivos GPX.');
@@ -225,45 +235,28 @@ function createWorkout(PDO $pdo): void
     }
 
     try {
-        $stmt = $pdo->prepare(
-            'INSERT INTO workouts (id, name, sport, start_time, distance_km, imported_at, file_name, summary_json)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        );
-        $stmt->execute([
-            $id,
-            $summary['name'],
-            $summary['sport'],
-            $summary['startTime'],
-            $summary['distanceKm'],
-            $summary['importedAt'],
-            $summary['fileName'],
-            json_encode($summary, JSON_UNESCAPED_UNICODE),
-        ]);
+        $pdo->prepare('INSERT INTO workouts (id, user_id, name, sport, start_time, distance_km, imported_at, file_name, summary_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([
+                $id, $userId, $summary['name'], $summary['sport'], $summary['startTime'],
+                $summary['distanceKm'], $summary['importedAt'], $summary['fileName'],
+                json_encode($summary, JSON_UNESCAPED_UNICODE),
+            ]);
     } catch (Throwable $e) {
         @unlink(gpxPath($id));
         throw $e;
     }
 
-    respond(201, ['id' => $id] + $summary);
-}
-
-/** DELETE ?id=X: elimina el entrenamiento y su archivo. */
-function deleteWorkout(PDO $pdo, string $id): void
-{
-    findWorkout($pdo, $id);
-    $pdo->prepare('DELETE FROM workouts WHERE id = ?')->execute([$id]);
-    if (is_file(gpxPath($id))) {
-        @unlink(gpxPath($id));
-    }
-    respond(200, ['ok' => true]);
+    respond(201, ['id' => $id, 'userId' => $userId] + $summary);
 }
 
 /* ------------------------------------------------------------------
  * 4. Enrutamiento
  * ------------------------------------------------------------------ */
 
-try {
-    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+runApi(function (string $method) {
+    $user = requireUser();
+    $pdo = db();
     $id = isset($_GET['id']) ? (string) $_GET['id'] : null;
 
     // Los id son 16 caracteres hexadecimales: cualquier otra cosa se rechaza
@@ -271,39 +264,34 @@ try {
         fail(400, 'Identificador de entrenamiento no válido.');
     }
 
-    $pdo = db();
-
-    switch ($method) {
-        case 'GET':
-            if ($id === null) {
-                listWorkouts($pdo);
-            } elseif (isset($_GET['file'])) {
-                sendGpxFile($pdo, $id);
-            } else {
-                getWorkout($pdo, $id);
-            }
-            break;
-
-        case 'POST':
-            createWorkout($pdo);
-            break;
-
-        case 'DELETE':
-            if ($id === null) {
-                fail(400, 'Falta el identificador del entrenamiento.');
-            }
-            deleteWorkout($pdo, $id);
-            break;
-
-        default:
-            header('Allow: GET, POST, DELETE');
-            fail(405, 'Método no permitido.');
+    if ($method === 'GET') {
+        if ($id === null) {
+            listWorkouts($pdo, $user);
+        }
+        $row = findVisibleWorkout($pdo, $user, $id);
+        if (isset($_GET['file'])) {
+            sendGpxFile($row);
+        }
+        respond(200, rowToSummary($row));
     }
-} catch (PDOException $e) {
-    error_log('[calculadora-running] ' . $e->getMessage());
-    fail(500, 'No se pudo conectar con la base de datos. Verifica que MySQL esté encendido en XAMPP.'
-        . (config()['debug'] ? ' (' . $e->getMessage() . ')' : ''));
-} catch (Throwable $e) {
-    error_log('[calculadora-running] ' . $e->getMessage());
-    fail(500, 'Error del servidor.' . (config()['debug'] ? ' (' . $e->getMessage() . ')' : ''));
-}
+
+    if ($method === 'POST') {
+        if ($user['role'] !== 'athlete') {
+            fail(403, 'Solo los alumnos importan entrenamientos.');
+        }
+        createWorkout($pdo, $user);
+    }
+
+    if ($method === 'DELETE') {
+        if ($id === null) {
+            fail(400, 'Falta el identificador del entrenamiento.');
+        }
+        $row = findVisibleWorkout($pdo, $user, $id);
+        if ((int) $row['user_id'] !== (int) $user['id']) {
+            fail(403, 'Solo el alumno puede eliminar sus entrenamientos.');
+        }
+        $pdo->prepare('DELETE FROM workouts WHERE id = ?')->execute([$id]);
+        @unlink(gpxPath($id));
+        respond(200, ['ok' => true]);
+    }
+});

@@ -30,6 +30,22 @@
   --series-elev: #8e8e93;     /* Gráfica de altitud */
   --series-hr: #ff3b30;       /* Gráfica de frecuencia cardiaca */
   --series-cad: #af52de;      /* Gráfica de cadencia */
+  --series-a: #ff9500;        /* Periodo comparado (naranja iOS) */
+  --series-prev: #c7c7cc;     /* Año anterior (gris claro) */
+  --series-older: #8e8e93;    /* Años más antiguos */
+  --good: #1f8a3b;            /* Estados: bien / atención / mal */
+  --good-bg: #e4f8e9;
+  --warn: #c76a00;
+  --bad: #d12a1f;
+  --bad-bg: #ffe9e7;
+  /* Tipos de entrenamiento: color principal y fondo suave */
+  --t-rep: #ff3b30;     --t-rep-bg: #ffe9e7;
+  --t-fondo: #007aff;   --t-fondo-bg: #e8f1ff;
+  --t-fartlek: #af52de; --t-fartlek-bg: #f5e9fb;
+  --t-tempo: #ff9500;   --t-tempo-bg: #fff1e0;
+  --t-cuestas: #34c759; --t-cuestas-bg: #e4f8e9;
+  --t-suave: #30b0c7;   --t-suave-bg: #e2f5f8;
+  --k-easy: #a1a1a6;    /* Calentamiento / enfriamiento */
   --radius: 12px;
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
           Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -56,6 +72,21 @@
     --series-elev: #98989d;
     --series-hr: #ff453a;
     --series-cad: #bf5af2;
+    --series-a: #ff9f0a;
+    --series-prev: #636366;
+    --series-older: #8e8e93;
+    --good: #30d158;
+    --good-bg: rgba(48, 209, 88, 0.16);
+    --warn: #ff9f0a;
+    --bad: #ff453a;
+    --bad-bg: rgba(255, 69, 58, 0.16);
+    --t-rep: #ff453a;     --t-rep-bg: rgba(255, 69, 58, 0.18);
+    --t-fondo: #0a84ff;   --t-fondo-bg: rgba(10, 132, 255, 0.18);
+    --t-fartlek: #bf5af2; --t-fartlek-bg: rgba(191, 90, 242, 0.18);
+    --t-tempo: #ff9f0a;   --t-tempo-bg: rgba(255, 159, 10, 0.18);
+    --t-cuestas: #30d158; --t-cuestas-bg: rgba(48, 209, 88, 0.18);
+    --t-suave: #40c8e0;   --t-suave-bg: rgba(64, 200, 224, 0.18);
+    --k-easy: #8e8e93;
   }
 }
 
@@ -121,17 +152,31 @@ body {
   color: var(--text-secondary);
 }
 
-/* ---------- 4.1 Control segmentado (cambio de calculadora) ---------- */
-/* --count (en el HTML) = número de segmentos; --active (JS) = segmento activo */
+/* ---------- 4.1 Control segmentado (cambio de sección) ---------- */
+/* --count (JS) = número de segmentos visibles; --active (JS) = segmento activo.
+   .segmented se desliza en horizontal si no caben (teléfonos);
+   .segmented-track contiene los botones y la pastilla. */
 .segmented {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(var(--count, 2), 1fr);
-  max-width: 528px;
+  max-width: 720px;
   margin-top: 16px;
-  padding: 2px;
   background: var(--segmented-bg);
   border-radius: 9px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.segmented::-webkit-scrollbar {
+  display: none;
+}
+
+.segmented-track {
+  position: relative;
+  display: grid;
+  width: max-content;   /* ancho de todos los botones (puede ser mayor que la pantalla) */
+  min-width: 100%;
+  grid-template-columns: repeat(var(--count, 2), minmax(92px, 1fr));
+  padding: 2px;
 }
 
 /* Pastilla blanca que se desliza bajo el segmento activo */
@@ -158,6 +203,7 @@ body {
   font-size: 14px;
   font-weight: 500;
   color: var(--text);
+  white-space: nowrap;
   background: none;
   border: none;
   border-radius: 7px;
@@ -1260,7 +1306,10 @@ input::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   min-height: 50px;
+  border: none;
+  cursor: pointer;
   margin-top: 28px;
   font: inherit;
   color: var(--accent);
@@ -1329,4 +1378,1207 @@ input::placeholder {
   .chart-bar,
   .chip,
   .import-card { transition: none; }
+}
+
+/* =====================================================================
+   14. Acceso y cuenta (auth.js)
+   ===================================================================== */
+.auth-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.auth-logo {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  font-size: 36px;
+  background: var(--surface);
+  border-radius: 18px;
+}
+
+.auth-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.auth-text {
+  margin: 8px 0 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+/* Encabezado: título a la izquierda, cuenta a la derecha */
+.app-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.user-pill {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 4px 14px 4px 4px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--surface);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.user-pill:empty {
+  display: none;
+}
+
+.user-pill-text b {
+  display: block;
+  font-size: 14px;
+}
+
+.user-pill-text span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.user-pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .user-pill { padding: 3px; }
+  .user-pill-text { display: none; }
+}
+
+/* Círculo con iniciales */
+.avatar {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 50%;
+}
+
+/* =====================================================================
+   15. Componentes comunes de las secciones
+   ===================================================================== */
+#plan-root,
+#progress-root,
+#athletes-root,
+#builder-root,
+#library-root {
+  padding-top: 24px;
+}
+
+.muted { color: var(--text-secondary); }
+.small { font-size: 13px; }
+
+.inline-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.chip-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip-small {
+  min-height: 28px;
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+.chip-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--separator);
+}
+
+/* Control segmentado pequeño (Por mes / Por año / Comparar) */
+.seg-mini {
+  display: inline-flex;
+  gap: 2px;
+  max-width: 100%;
+  margin-top: 16px;
+  padding: 2px;
+  overflow-x: auto;
+  background: var(--segmented-bg);
+  border-radius: 9px;
+}
+
+.seg-mini button {
+  min-height: 32px;
+  padding: 6px 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.seg-mini button[aria-pressed="true"] {
+  font-weight: 600;
+  background: var(--segmented-thumb);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
+}
+
+.seg-mini button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Tarjetas de indicadores */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.kpi-grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 18px 0;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+
+.kpi > span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.kpi > b {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.kpi > small {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.kpi > .delta {
+  align-self: flex-start;
+}
+
+.kpi-key {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 2px;
+}
+
+@media (max-width: 700px) {
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi > b { font-size: 21px; }
+}
+
+/* Variación porcentual (▲ verde / ▼ rojo) */
+.delta {
+  display: inline-block;
+  padding: 2px 7px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--segmented-bg);
+  border-radius: 6px;
+}
+
+.delta.is-up { color: var(--good); background: var(--good-bg); }
+.delta.is-down { color: var(--bad); background: var(--bad-bg); }
+
+/* Título de sección con un botón a la derecha */
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.section-head .btn-small {
+  margin-bottom: 6px;
+}
+
+/* Botones pequeños */
+.btn-small {
+  min-height: 36px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.btn-small.is-ghost {
+  color: var(--text);
+  background: var(--segmented-bg);
+}
+
+.icon-button {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text-secondary);
+  background: var(--field-bg);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-small:active,
+.icon-button:active { opacity: 0.6; }
+
+.btn-small:focus-visible,
+.icon-button:focus-visible,
+.round-button:focus-visible,
+.next-row:focus-visible,
+.plan-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Barra de avance */
+.progress-bar {
+  height: 8px;
+  margin-top: 10px;
+  overflow: hidden;
+  background: var(--segmented-bg);
+  border-radius: 4px;
+}
+
+.progress-bar > div {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.progress-bar.is-good > div { background: var(--good); }
+.progress-bar.is-warn > div { background: var(--warn); }
+.progress-bar.is-bad > div { background: var(--bad); }
+
+.group.padded {
+  margin-top: 16px;
+  padding: 16px;
+}
+
+/* Área de texto */
+.text-area {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  color: inherit;
+  background: var(--field-bg);
+  border: none;
+  border-radius: 10px;
+  outline: none;
+  resize: vertical;
+}
+
+.group > .text-area {
+  padding: 12px 16px;
+  background: transparent;
+  border-radius: 0;
+}
+
+.text-area:focus {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Fila de lista con la etiqueta arriba */
+.row.row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+/* =====================================================================
+   16. Hoja modal y aviso (ui.js)
+   ===================================================================== */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: calc(40px + env(safe-area-inset-top)) 16px 40px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  padding: 24px;
+  background: var(--bg);
+  border-radius: 20px;
+  outline: none;
+  animation: sheet-in 0.2s ease;
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.sheet-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--segmented-bg);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.sheet-title {
+  margin: 10px 0 4px;
+  padding-right: 40px;
+  font-size: 26px;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  padding-right: 40px;
+}
+
+.sheet-head h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.sheet .btn-destructive {
+  margin-top: 12px;
+}
+
+@media (max-width: 560px) {
+  .modal { padding: calc(16px + env(safe-area-inset-top)) 8px 16px; }
+  .sheet { padding: 20px 16px; }
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  z-index: 60;
+  max-width: calc(100% - 32px);
+  padding: 12px 20px;
+  font-size: 15px;
+  color: #fff;
+  background: #1c1c1e;
+  border-radius: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 20px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  .toast { background: #3a3a3c; }
+}
+
+/* =====================================================================
+   17. Estructura de entrenamientos (structure.js)
+   ===================================================================== */
+.struct-svg {
+  display: block;
+  width: 100%;
+}
+
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--type-bg);
+  border-radius: 999px;
+}
+
+.type-badge i {
+  width: 8px;
+  height: 8px;
+  background: var(--type);
+  border-radius: 50%;
+}
+
+.steps-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  font-size: 14px;
+  list-style: none;
+}
+
+.steps-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.steps-list i {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translateY(1px);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--t-fondo-bg);
+  border-radius: 8px;
+}
+
+.status-badge.is-done {
+  color: var(--good);
+  background: var(--good-bg);
+}
+
+.note-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.note-card p {
+  margin: 4px 0 0;
+}
+
+/* Insignia "✓ entreno del plan" en la lista de Entrenos */
+.plan-done-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--good);
+  vertical-align: 2px;
+  background: var(--good-bg);
+  border-radius: 6px;
+}
+
+/* =====================================================================
+   18. Mi plan (plan.js)
+   ===================================================================== */
+.coach-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+}
+
+.coach-card p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+}
+
+.week-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 10px;
+}
+
+.week-nav .section-title {
+  margin: 0;
+  text-align: center;
+}
+
+.round-button {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text);
+  background: var(--segmented-bg);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.week-day {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 132px;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: 14px;
+}
+
+.week-day.is-today {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.week-day h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.week-day h4 b {
+  display: block;
+  font-size: 22px;
+  color: var(--text);
+  text-transform: none;
+}
+
+.plan-chip {
+  width: 100%;
+  padding: 8px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--text);
+  text-align: left;
+  background: var(--type-bg);
+  border: none;
+  border-left: 3px solid var(--type);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.plan-chip b {
+  display: block;
+  font-size: 12px;
+}
+
+.plan-chip.is-done {
+  opacity: 0.65;
+}
+
+.week-rest {
+  margin-top: auto;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 760px) {
+  .week-grid { grid-template-columns: minmax(0, 1fr); }
+  /* Teléfono: cada día es una fila (fecha a la izquierda, entrenos a la derecha) */
+  .week-day {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 10px;
+    min-height: 0;
+  }
+  .week-day h4 { grid-row: 1; align-self: start; }
+  .week-day h4 b { font-size: 18px; }
+  .week-day > :not(h4) { grid-column: 2; }
+  .week-rest { margin-top: 0; }
+}
+
+.week-progress {
+  margin-top: 10px;
+  padding: 16px;
+}
+
+.week-progress-text {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.next-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 16px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.next-row + .next-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 74px;
+  right: 0;
+  height: 0.5px;
+  background: var(--separator);
+}
+
+.type-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+  background: var(--type-bg);
+  border-radius: 12px;
+}
+
+.next-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.next-info b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.next-info span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.late {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--bad);
+}
+
+.next-struct {
+  flex-shrink: 0;
+  width: 180px;
+}
+
+.chevron {
+  font-size: 20px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 600px) {
+  .next-struct { display: none; }
+}
+
+/* =====================================================================
+   19. Progreso (progress.js)
+   ===================================================================== */
+#progress-root > .chip-line + .seg-mini,
+.progress-body > .chip-line:first-child,
+.progress-body > .seg-mini:first-child {
+  margin-top: 16px;
+}
+
+.progress-body > .seg-mini:first-child {
+  display: flex;
+  width: max-content;
+}
+
+.compare-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.select-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  background: var(--surface);
+  border-radius: 12px;
+}
+
+.select-pill i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.select-pill select {
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 15px;
+  color: inherit;
+  background: var(--field-bg);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.vs {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 4px 8px 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.chart-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border-radius: 3px;
+}
+
+.chart-bar-multi {
+  transition: opacity 0.15s ease;
+}
+
+.chart-bar-multi.is-dim {
+  opacity: 0.35;
+}
+
+.data-table {
+  width: 100%;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  padding: 12px 16px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.data-table td {
+  padding: 9px 16px;
+  white-space: nowrap;
+  border-top: 0.5px solid var(--separator);
+}
+
+.data-table .num {
+  text-align: right;
+}
+
+.data-table .bar-col {
+  width: 30%;
+}
+
+.minibar {
+  min-width: 2px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+@media (max-width: 480px) {
+  .data-table th,
+  .data-table td { padding-left: 10px; padding-right: 10px; }
+}
+
+/* =====================================================================
+   20. Alumnos (athletes.js)
+   ===================================================================== */
+.athlete-row {
+  position: relative;
+  display: grid;
+  /* Columnas de ancho fijo/proporcional: iguales en todas las filas */
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.8fr) minmax(0, 1.3fr) minmax(0, 1fr) 130px 236px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  font-size: 15px;
+}
+
+.athlete-row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.athlete-row + .athlete-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 0.5px;
+  background: var(--separator);
+}
+
+.athlete-row.is-head {
+  padding-bottom: 6px;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.athlete-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.athlete-name > div {
+  min-width: 0;
+}
+
+.athlete-name > div > b {
+  display: block;
+  font-size: 17px;
+}
+
+.athlete-name > div > span {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.athlete-row .progress-bar {
+  margin-top: 6px;
+}
+
+.athlete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cell-label {
+  display: none;
+}
+
+.spark {
+  display: block;
+  width: 120px;
+  height: 32px;
+}
+
+/* Tablet y teléfono: cada alumno es una tarjeta de 2 columnas */
+@media (max-width: 960px) {
+  .athlete-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+  .athlete-row.is-head { display: none; }
+  .athlete-name,
+  .athlete-actions { grid-column: 1 / -1; }
+  .athlete-actions { justify-content: flex-start; }
+  .cell-label {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+}
+
+/* =====================================================================
+   21. Crear entreno y Biblioteca (builder.js)
+   ===================================================================== */
+.builder-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 28px;
+}
+
+@media (min-width: 1000px) {
+  .builder-grid {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    align-items: start;
+  }
+  .builder-side {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+.builder-grid .section-title:first-child {
+  margin-top: 0;
+}
+
+.block {
+  margin-bottom: 10px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border-left: 4px solid var(--block);
+  border-radius: 14px;
+}
+
+.block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.step-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 10px;
+}
+
+.step-label {
+  width: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--field-bg);
+  border-radius: 10px;
+}
+
+.field > span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.field input,
+.field select {
+  width: 72px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 15px;
+  color: inherit;
+  background: var(--surface);
+  border: none;
+  border-radius: 7px;
+  outline: none;
+}
+
+.field select {
+  width: auto;
+}
+
+.field .pace-input { width: 60px; }
+.field .reps-input { width: 56px; }
+
+.field input:focus,
+.field select:focus {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+@media (max-width: 560px) {
+  .step-label { width: 100%; }
+}
+
+.add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.add-row button {
+  padding: 9px 14px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1.5px dashed var(--separator);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.add-row button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.preview {
+  padding: 16px;
+}
+
+.preview h3 {
+  margin: 10px 0 2px;
+  font-size: 20px;
+}
+
+.preview-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.preview-totals div {
+  padding: 8px 10px;
+  background: var(--field-bg);
+  border-radius: 10px;
+}
+
+.preview-totals span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.preview-totals b {
+  font-size: 17px;
+}
+
+.preview-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.builder-side .btn-primary { margin-top: 12px; }
+.builder-side .btn-secondary { margin-top: 8px; }
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.library-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 14px;
+}
+
+.library-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.library-card p {
+  margin: 0;
+}
+
+.library-card p.muted {
+  font-size: 14px;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: auto;
+}
+
+.card-actions .icon-button {
+  margin-left: auto;
+}
+
+@media (hover: hover) {
+  .next-row:hover { background: var(--menu-highlight); }
+  .add-row button:hover { color: var(--accent); border-color: var(--accent); }
+  .btn-small:hover { opacity: 0.85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet { animation: none; }
+  .toast,
+  .chart-bar-multi { transition: none; }
 }
