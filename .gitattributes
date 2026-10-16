@@ -1,0 +1,3 @@
+# Los scripts del servidor (Linux) siempre con fin de línea LF
+*.sh text eol=lf
+*.conf text eol=lf

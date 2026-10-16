@@ -73,3 +73,11 @@ CREATE TABLE IF NOT EXISTS assignments (
     CONSTRAINT fk_assignments_athlete FOREIGN KEY (athlete_id) REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT fk_assignments_coach FOREIGN KEY (coach_id) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Intentos de inicio de sesión fallidos (límite contra adivinar contraseñas).
+-- "attempt_key" es un hash del correo o de la IP; se borran solos al pasar la ventana.
+CREATE TABLE IF NOT EXISTS login_attempts (
+    attempt_key   CHAR(64)      NOT NULL COMMENT 'sha256 de "email:..." o "ip:..."',
+    attempted_at  BIGINT        NOT NULL,
+    KEY idx_login_attempts (attempt_key, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

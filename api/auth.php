@@ -26,6 +26,46 @@ require __DIR__ . '/structure.php';
 /** Longitud mínima de las contraseñas. */
 const MIN_PASSWORD = 8;
 
+/** Límite de intentos fallidos: por correo, por IP y ventana de tiempo. */
+const MAX_FAILS_EMAIL = 5;
+const MAX_FAILS_IP = 20;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+
+/** Claves (hash) con las que se cuentan los intentos de un correo y una IP. */
+function attemptKeys(string $email): array
+{
+    return [
+        'email' => hash('sha256', 'email:' . $email),
+        'ip'    => hash('sha256', 'ip:' . ($_SERVER['REMOTE_ADDR'] ?? '')),
+    ];
+}
+
+/** Error 429 si el correo o la IP superaron los intentos fallidos permitidos. */
+function checkLoginAttempts(PDO $pdo, array $keys): void
+{
+    $since = nowMs() - FAIL_WINDOW_MS;
+    $pdo->prepare('DELETE FROM login_attempts WHERE attempted_at < ?')->execute([$since]);
+
+    $count = $pdo->prepare('SELECT COUNT(*), MIN(attempted_at) FROM login_attempts WHERE attempt_key = ?');
+    foreach (['email' => MAX_FAILS_EMAIL, 'ip' => MAX_FAILS_IP] as $type => $max) {
+        $count->execute([$keys[$type]]);
+        [$fails, $oldest] = $count->fetch(PDO::FETCH_NUM);
+        if ((int) $fails >= $max) {
+            $minutes = max(1, (int) ceil(((int) $oldest + FAIL_WINDOW_MS - nowMs()) / 60000));
+            fail(429, "Demasiados intentos fallidos. Espera $minutes min y vuelve a intentarlo.");
+        }
+    }
+}
+
+/** Registra un intento fallido para el correo y la IP. */
+function recordFailedLogin(PDO $pdo, array $keys): void
+{
+    $stmt = $pdo->prepare('INSERT INTO login_attempts (attempt_key, attempted_at) VALUES (?, ?)');
+    foreach ($keys as $key) {
+        $stmt->execute([$key, nowMs()]);
+    }
+}
+
 /** Respuesta con el usuario actual y su entrenador. */
 function sessionInfo(?array $user): array
 {
@@ -91,13 +131,19 @@ runApi(function (string $method) {
         case 'login':
             $email = strtolower(cleanText($data['email'] ?? '', 190));
             $password = (string) ($data['password'] ?? '');
+            $keys = attemptKeys($email);
+            checkLoginAttempts($pdo, $keys);
+
             $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ?');
             $stmt->execute([$email]);
             $user = $stmt->fetch();
             if (!$user || !password_verify($password, $user['password_hash'])) {
+                recordFailedLogin($pdo, $keys);
                 usleep(400000); // frena los intentos repetidos
                 fail(401, 'Correo o contraseña incorrectos.');
             }
+            // Acierto: se olvidan los fallos de ese correo
+            $pdo->prepare('DELETE FROM login_attempts WHERE attempt_key = ?')->execute([$keys['email']]);
             signIn((int) $user['id']);
             respond(200, sessionInfo($user));
 

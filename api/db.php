@@ -13,7 +13,7 @@
 declare(strict_types=1);
 
 /** Versión de la estructura de la base de datos (ver migrate()). */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 /* ------------------------------------------------------------------
  * 1. Configuración y conexión
@@ -73,6 +73,7 @@ function db(): PDO
  *  v1: tabla workouts sin usuarios (versión anterior de la app).
  *  v2: usuarios, plantillas y asignaciones. Los entrenamientos de v1 no
  *      tenían dueño y se eliminan (decisión del proyecto).
+ *  v3: tabla login_attempts (límite de intentos de inicio de sesión).
  */
 function migrate(PDO $pdo): void
 {
@@ -95,8 +96,9 @@ function migrate(PDO $pdo): void
             }
             $pdo->exec('DROP TABLE workouts');
         }
-        runSqlFile($pdo, __DIR__ . '/schema.sql');
     }
+    // Todas las tablas usan CREATE TABLE IF NOT EXISTS: crea las que falten
+    runSqlFile($pdo, __DIR__ . '/schema.sql');
 
     $pdo->prepare("REPLACE INTO app_meta (name, value) VALUES ('schema_version', ?)")
         ->execute([(string) SCHEMA_VERSION]);
