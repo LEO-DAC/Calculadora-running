@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <!--
   =====================================================================
-  Calculadora de Running (Ritmo + Backyard)
+  Calculadora de Running (Ritmo + Backyard + Entrenos)
   ---------------------------------------------------------------------
   Archivo: index.html
   Descripción: Estructura de la interfaz. Un control segmentado permite
-  cambiar entre dos calculadoras:
+  cambiar entre tres secciones:
     1. Ritmo: distancia + tiempo (h, min, s) -> ritmo por km.
     2. Backyard: vueltas de 6.7 km + km extra opcionales -> km totales.
-  Cada una tiene su formulario y su tarjeta de resultados.
+    3. Entrenos: dashboard de actividades importadas desde archivos GPX
+       (Strava). El detalle de cada una se abre en detalle.html.
   Estilos: styles.css   |   Lógica: app.js
   =====================================================================
 -->
@@ -40,14 +41,24 @@
       data-title / data-subtitle: textos del encabezado para cada vista.
       aria-controls: id de la sección (tabpanel) que muestra cada botón.
     -->
-    <div class="segmented" id="calc-switcher" role="tablist" aria-label="Tipo de calculadora" data-active="0">
+    <!--
+      --count: número de segmentos (ancho de la pastilla deslizante).
+      data-hash: se refleja en la URL (#ritmo, #backyard, #entrenos) para
+      poder abrir directamente una sección.
+      data-wide: la vista usa el ancho de dashboard (tablet / escritorio).
+    -->
+    <div class="segmented" id="calc-switcher" role="tablist" aria-label="Sección" style="--count: 3">
       <span class="segmented-thumb" aria-hidden="true"></span>
       <button type="button" class="segmented-option" role="tab" id="tab-pace"
-              aria-selected="true" aria-controls="pace-view"
+              aria-selected="true" aria-controls="pace-view" data-hash="ritmo"
               data-title="Ritmo" data-subtitle="Calcula tu ritmo de carrera por kilómetro">Ritmo</button>
       <button type="button" class="segmented-option" role="tab" id="tab-backyard"
-              aria-selected="false" aria-controls="backyard-view" tabindex="-1"
+              aria-selected="false" aria-controls="backyard-view" tabindex="-1" data-hash="backyard"
               data-title="Backyard" data-subtitle="Calcula los kilómetros totales de tu backyard">Backyard</button>
+      <button type="button" class="segmented-option" role="tab" id="tab-training"
+              aria-selected="false" aria-controls="training-view" tabindex="-1" data-hash="entrenos"
+              data-wide="true"
+              data-title="Entrenos" data-subtitle="Importa tus actividades GPX de Strava y analízalas">Entrenos</button>
     </div>
 
     <!-- =============================================================
@@ -226,8 +237,101 @@
 
     </section><!-- /#backyard-view -->
 
+    <!-- =============================================================
+         VISTA 3: Dashboard de entrenamientos (archivos GPX)
+         Lógica: dashboard.js | Lectura GPX: gpx.js
+         Almacenamiento: storage.js | Gráficas: charts.js
+         ============================================================= -->
+    <section id="training-view" class="view" role="tabpanel" aria-labelledby="tab-training" hidden>
+      <div class="dash">
+
+        <!-- ===== Columna lateral: importar ===== -->
+        <aside class="dash-side">
+          <h2 class="section-title">Importar</h2>
+          <!-- Tarjeta de importación: también acepta arrastrar y soltar archivos -->
+          <div class="group import-card" id="drop-zone">
+            <span class="import-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 15V3M7 8l5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>
+              </svg>
+            </span>
+            <p class="import-text">Importa tus actividades de Strava en formato <strong>GPX</strong>.</p>
+            <!-- Input de archivo oculto; el botón lo abre (multiple = varios a la vez) -->
+            <input type="file" id="gpx-input" accept=".gpx,application/gpx+xml" multiple hidden>
+            <button type="button" class="btn-primary btn-import" id="import-button">
+              <span id="import-label">Importar entrenamiento</span>
+            </button>
+            <p class="import-hint">o arrastra los archivos aquí</p>
+          </div>
+          <p class="group-footer">
+            En Strava: abre la actividad → menú <strong>⋯</strong> → <strong>Exportar GPX</strong>.
+            Los datos se guardan solo en este navegador.
+          </p>
+        </aside>
+
+        <!-- ===== Columna principal ===== -->
+        <div class="dash-main">
+
+          <!-- Filtros: afectan al resumen, la lista y la gráfica -->
+          <div class="filters" id="dash-filters" hidden>
+            <div class="chip-row" id="year-chips" role="group" aria-label="Filtrar por año"></div>
+            <div class="chip-row" id="sport-chips" role="group" aria-label="Filtrar por actividad"></div>
+          </div>
+
+          <!-- Resumen: km sumados de los entrenamientos -->
+          <h2 class="section-title">Resumen</h2>
+          <div class="group">
+            <div class="summary-hero">
+              <span class="hero-value" id="total-km">0.0</span>
+              <span class="hero-caption" id="total-caption">km</span>
+            </div>
+            <div class="summary-stats">
+              <div class="summary-stat">
+                <span class="summary-label">Entrenamientos</span>
+                <span class="summary-value" id="stat-count">0</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-label">Tiempo en movimiento</span>
+                <span class="summary-value" id="stat-time">0 min</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-label" id="stat-pace-label">Ritmo medio</span>
+                <span class="summary-value" id="stat-pace">—</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-label">Desnivel positivo</span>
+                <span class="summary-value" id="stat-elev">0 m</span>
+              </div>
+            </div>
+          </div>
+          <p class="group-footer" id="all-time"></p>
+
+          <!-- Lista de entrenamientos importados -->
+          <h2 class="section-title">Entrenamientos</h2>
+          <div class="group">
+            <ul class="workout-list" id="workout-list"></ul>
+          </div>
+          <button type="button" class="btn-plain" id="list-more" hidden>Mostrar todos</button>
+
+          <!-- Gráfica mensual de km -->
+          <h2 class="section-title" id="chart-title">Km por mes</h2>
+          <div class="group chart-card">
+            <div class="chart" id="monthly-chart"></div>
+          </div>
+          <p class="group-footer">Pasa el cursor o toca una barra para ver los km de ese mes.</p>
+
+        </div>
+      </div>
+    </section><!-- /#training-view -->
+
   </main>
 
+  <!-- Orden de carga: utilidades compartidas -> lógica de cada sección -->
+  <script src="gpx.js"></script>
+  <script src="storage.js"></script>
+  <script src="charts.js"></script>
   <script src="app.js"></script>
+  <script src="dashboard.js"></script>
 </body>
 </html>

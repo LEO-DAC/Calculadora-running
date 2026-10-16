@@ -10,8 +10,9 @@
  *  - Calcula el ritmo (min/km), la velocidad (km/h) y muestra el resultado.
  *      ritmo (segundos por km) = tiempo total en segundos / distancia en km
  *
- *  Cambio de calculadora (sección 8):
- *  - Control segmentado que alterna entre las vistas Ritmo y Backyard.
+ *  Cambio de sección (sección 8):
+ *  - Control segmentado que alterna entre Ritmo, Backyard y Entrenos.
+ *    (La lógica del dashboard Entrenos está en dashboard.js.)
  *
  *  Calculadora Backyard (sección 9):
  *  - Vueltas completas de 6.7 km + km extra opcionales (interruptor).
@@ -456,18 +457,19 @@
   });
 
   /* ==================================================================
-   * 8. Cambio de calculadora (control segmentado Ritmo / Backyard)
+   * 8. Cambio de sección (control segmentado Ritmo / Backyard / Entrenos)
    * ================================================================== */
 
   const switcher = document.getElementById('calc-switcher');
   const tabs = Array.from(switcher.querySelectorAll('.segmented-option'));
   const appTitle = document.getElementById('app-title');
   const appSubtitle = document.getElementById('app-subtitle');
+  const appMain = document.querySelector('.app');
 
   /**
    * Activa una pestaña: marca el segmento, mueve la pastilla, muestra
-   * su vista, oculta las demás y actualiza título y subtítulo.
-   * @param {number} index - Posición de la pestaña (0 = Ritmo, 1 = Backyard).
+   * su vista, oculta las demás y actualiza título, subtítulo y URL.
+   * @param {number} index - Posición de la pestaña (0 = Ritmo, 1 = Backyard, 2 = Entrenos).
    */
   function activateTab(index) {
     tabs.forEach(function (tab, i) {
@@ -477,10 +479,15 @@
       document.getElementById(tab.getAttribute('aria-controls')).hidden = !isActive;
     });
 
-    switcher.dataset.active = String(index);      // mueve la pastilla (CSS)
-    appTitle.textContent = tabs[index].dataset.title;
-    appSubtitle.textContent = tabs[index].dataset.subtitle;
-    closePicker(false);                            // por si el menú quedó abierto
+    const tab = tabs[index];
+    switcher.style.setProperty('--active', index);  // mueve la pastilla (CSS)
+    appTitle.textContent = tab.dataset.title;
+    appSubtitle.textContent = tab.dataset.subtitle;
+    // El dashboard usa más ancho en tablet y escritorio
+    appMain.classList.toggle('app--wide', tab.dataset.wide === 'true');
+    // Refleja la sección en la URL (#entrenos) sin agregar historial
+    if (history.replaceState) history.replaceState(null, '', '#' + tab.dataset.hash);
+    closePicker(false);                             // por si el menú quedó abierto
   }
 
   // Cambiar con clic o toque
@@ -497,6 +504,10 @@
     activateTab(next);
     tabs[next].focus();
   });
+
+  // Al cargar: abre la sección indicada en la URL (p. ej. index.html#entrenos)
+  const initialTab = tabs.findIndex(function (t) { return '#' + t.dataset.hash === window.location.hash; });
+  if (initialTab > 0) activateTab(initialTab);
 
   /* ==================================================================
    * 9. Calculadora Backyard

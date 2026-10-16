@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  Detalle de entrenamiento
+  ---------------------------------------------------------------------
+  Archivo: detalle.html
+  Descripción: Página que se abre en otra ventana desde el dashboard
+  ("Ver detalle ›"). Recibe el id del entrenamiento en la URL
+  (detalle.html?id=...) y muestra todo lo que contiene el archivo GPX:
+  métricas, ruta, gráficas de altitud / ritmo / FC / cadencia,
+  parciales por km y datos adicionales.
+  Estilos: styles.css | Lógica: detalle.js
+  =====================================================================
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <title>Detalle del entrenamiento</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app app--wide">
+
+    <!-- Barra de navegación estilo iOS: vuelve al dashboard -->
+    <nav class="nav-bar">
+      <button type="button" class="nav-back" id="back-button">
+        <svg width="12" height="20" viewBox="0 0 12 20" aria-hidden="true">
+          <path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Entrenos
+      </button>
+    </nav>
+
+    <header class="app-header">
+      <h1 id="detail-title">Entrenamiento</h1>
+      <p class="subtitle" id="detail-subtitle">Cargando…</p>
+    </header>
+
+    <!-- Mensaje de error (id inválido o entrenamiento eliminado) -->
+    <div class="group empty-state" id="detail-error" hidden></div>
+
+    <div id="detail-content" hidden>
+
+      <!-- Métricas principales (tarjetas) -->
+      <section class="stat-grid" id="stat-grid" aria-label="Métricas principales"></section>
+
+      <div class="detail-grid">
+        <!-- Ruta -->
+        <section>
+          <h2 class="section-title">Ruta</h2>
+          <div class="group">
+            <div class="route-map" id="route-map"></div>
+            <div class="map-legend">
+              <span><span class="legend-dot legend-start"></span>Inicio</span>
+              <span><span class="legend-dot legend-end"></span>Fin</span>
+              <a id="osm-link" href="#" target="_blank" rel="noopener">Ver en OpenStreetMap ›</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Gráficas sincronizadas con el mapa -->
+        <section>
+          <h2 class="section-title">Análisis</h2>
+          <div class="group">
+            <div class="chart chart-stack" id="detail-charts"></div>
+          </div>
+          <p class="group-footer">Desliza o pasa el cursor sobre las gráficas para ver los valores y ubicarlos en el mapa.</p>
+        </section>
+      </div>
+
+      <!-- Parciales por kilómetro -->
+      <section id="splits-section">
+        <h2 class="section-title">Parciales por km</h2>
+        <div class="group table-wrap">
+          <table class="splits-table">
+            <thead>
+              <tr>
+                <th scope="col">Km</th>
+                <th scope="col" id="splits-pace-head">Ritmo</th>
+                <th scope="col" class="split-bar-cell"><span class="visually-hidden">Comparación</span></th>
+                <th scope="col" class="num">FC</th>
+                <th scope="col" class="num">Elev.</th>
+              </tr>
+            </thead>
+            <tbody id="splits-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Todos los demás datos del archivo -->
+      <section>
+        <h2 class="section-title">Más datos</h2>
+        <div class="group" id="more-data"></div>
+      </section>
+
+      <button type="button" class="btn-destructive" id="delete-button">Eliminar entrenamiento</button>
+    </div>
+
+  </main>
+
+  <script src="gpx.js"></script>
+  <script src="storage.js"></script>
+  <script src="charts.js"></script>
+  <script src="detalle.js"></script>
+</body>
+</html>
