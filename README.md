@@ -144,13 +144,29 @@ para que los navegadores descarguen la versión nueva.
 
 Para cambiar la conexión a la base de datos, crea `api/config.local.php` (ver `api/config.php`).
 
-## Publicarlo en internet
-Ya tiene inicio de sesión y permisos por rol. Además:
-1. Usar **HTTPS** (la cookie de sesión se marca como segura automáticamente).
-2. Crear `api/config.local.php` con las credenciales del hosting y `'debug' => false`.
-3. Si el hosting no permite crear bases de datos desde PHP: `'auto_create' => false` y ejecutar
-   `api/schema.sql` en su phpMyAdmin.
-4. Recomendado: limitar los intentos de inicio de sesión fallidos.
+## Servidor en internet (AWS Lightsail)
+La app está publicada en **AWS Lightsail** (región `us-east-1`):
+
+| Recurso | Valor |
+|---|---|
+| Servidor | `calculadora-running`, plan micro (1 GB RAM, 40 GB disco), LAMP de Bitnami (Debian 12, PHP 8, MariaDB) |
+| IP fija | `calculadora-ip` → `http://3.94.71.68/` |
+| Puertos abiertos | 22 (SSH), 80 (HTTP), 443 (HTTPS) |
+| Llave SSH | `calculadora-key` (en la computadora del administrador: `~/.ssh/calculadora-lightsail.pem`) |
+| App | `/opt/bitnami/projects/calculadora` (copia del repositorio de GitHub) |
+| Base de datos | `calculadora_running`, usuario propio `calculadora`; credenciales en `api/config.local.php` del servidor (no está en GitHub) |
+
+- **Publicar cambios:** sube los cambios a GitHub (`main`) y ejecuta
+  `ssh -i ~/.ssh/calculadora-lightsail.pem bitnami@3.94.71.68 "bash /opt/bitnami/projects/calculadora/deploy/update.sh"`.
+  El script descarga la versión nueva, ajusta permisos y aplica `deploy/apache-vhost.conf`.
+  Las tablas nuevas se crean solas al primer uso.
+- **Apache** (`deploy/apache-vhost.conf`) solo publica la app: bloquea `.git`, `deploy/`,
+  la configuración, los `.sql`/`.md` y los archivos GPX guardados.
+- **Inicio de sesión:** máximo 5 intentos fallidos por correo y 20 por IP cada 15 minutos.
+- **Pendiente:** dominio propio + **HTTPS** (con un dominio apuntando a la IP, ejecutar
+  `sudo /opt/bitnami/bncert-tool` en el servidor). Mientras no haya HTTPS, las contraseñas viajan
+  sin cifrar. La cookie de sesión se marca como segura en cuanto se use HTTPS.
+- **Respaldo:** instantáneas del servidor desde la consola de Lightsail (o automáticas diarias).
 
 ## Licencia
 Distribuido bajo la licencia GNU GPL v3. Consulta el archivo [LICENSE](LICENSE).
