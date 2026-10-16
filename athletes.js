@@ -101,7 +101,7 @@
         const rate = compliance(a);
         const rateClass = rate === null ? '' : rate >= 85 ? 'is-good' : rate >= 70 ? 'is-warn' : 'is-bad';
         return '<div class="athlete-row">' +
-          '<div class="athlete-name">' + UI.avatar(a.name, a.color, 40) +
+          '<div class="athlete-name">' + UI.avatar(a.name, a.color, 40, a.avatar) +
             '<div><b>' + esc(a.name) + '</b><span>' + esc(a.goal || a.email) + '</span></div></div>' +
           '<div><span class="cell-label">Km ' + monthName + '</span><b>' + UI.fmtKm(monthKm(a)) + '</b> <span class="muted">km</span></div>' +
           '<div><span class="cell-label">Último entreno</span>' + (a.last
@@ -160,7 +160,7 @@
     const a = athletes.find(function (x) { return x.id === id; });
     if (!a) return;
     const sheet = UI.openModal(
-      '<div class="sheet-head">' + UI.avatar(a.name, a.color, 56) + '<div><h2>' + esc(a.name) + '</h2>' +
+      '<div class="sheet-head">' + UI.avatar(a.name, a.color, 56, a.avatar) + '<div><h2>' + esc(a.name) + '</h2>' +
         '<div class="muted">' + esc(a.email) + '</div></div></div>' +
       '<form id="athlete-form" novalidate><div class="group">' +
         '<label class="row"><span class="row-label">Nombre</span><input class="row-input" name="name" value="' + esc(a.name) + '"></label>' +

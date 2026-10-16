@@ -1,5 +1,6 @@
-# Archivos GPX subidos (datos personales; viven solo en el servidor)
+# Archivos GPX y fotos de perfil subidos (datos personales; viven solo en el servidor)
 api/storage/gpx/
+api/storage/avatars/
 
 # Configuración local con credenciales (ver api/config.php)
 api/config.local.php

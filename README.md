@@ -9,17 +9,19 @@ sigue el avance de cada alumno.
 
 | Rol | Secciones |
 |---|---|
-| **Alumno** | Entrenos · Mi plan · Progreso · Ritmo · Backyard |
-| **Entrenador** | Alumnos · Crear entreno · Biblioteca · Progreso |
+| **Alumno** | Entrenos · Mi plan · Progreso · Test de Cooper · Ritmo · Backyard |
+| **Entrenador** | Alumnos · Crear entreno · Biblioteca · Progreso · Test de Cooper |
 
 Cada sección se puede abrir directamente con la URL: `index.html#entrenos`, `#plan`, `#progreso`,
-`#ritmo`, `#backyard`, `#alumnos`, `#crear`, `#biblioteca`.
+`#cooper`, `#ritmo`, `#backyard`, `#alumnos`, `#crear`, `#biblioteca`.
 
 ### Cuentas e inicio de sesión
 - La **primera vez** que se abre la app aparece "Crear cuenta de entrenador".
 - El entrenador da de alta a sus alumnos en **Alumnos → + Agregar alumno** (nombre, correo,
   contraseña temporal y objetivo). El alumno inicia sesión con ese correo y contraseña.
-- Desde el botón de cuenta (arriba a la derecha) se cambia la contraseña y se cierra sesión.
+- Desde el botón de cuenta (arriba a la derecha) se agrega o quita la **foto de perfil**, se cambia la
+  contraseña y se cierra sesión. La foto se recorta y reduce a 256 px en el navegador antes de subirla;
+  la ven el propio usuario, su entrenador y sus alumnos.
 - Si un alumno olvida su contraseña, el entrenador le asigna una nueva desde **Editar (⋯)**.
 
 ## Secciones del alumno
@@ -32,7 +34,7 @@ Cada sección se puede abrir directamente con la URL: `index.html#entrenos`, `#p
   cadencia, temperatura, potencia, nombre y tipo de actividad. Se calcula distancia, tiempo en
   movimiento (sin pausas), ritmo, desnivel, parciales por km y series para las gráficas.
 - Filtros por año y actividad, resumen (km totales, tiempo, ritmo, desnivel), lista con
-  **Ver detalle ›** y gráfica de km por mes. Las actividades de días con un entreno del plan
+  **Ver detalle ›** y **Eliminar** (con confirmación; borra los datos y el archivo GPX) y gráfica de km por mes. Las actividades de días con un entreno del plan
   completado muestran la insignia **✓ nombre del entreno**.
 
 ### Detalle (`detalle.html`)
@@ -56,6 +58,17 @@ Solo cuenta actividades de carrera.
 - **Por año:** total histórico, mejor año, km por año y km acumulados por año.
 - **Comparar:** mes vs mes (km acumulados día a día) o año vs año (año completo, a la misma
   fecha, km por mes y acumulados), con variaciones ▲/▼.
+
+### Test de Cooper (alumno y entrenador)
+Registro de la prueba de 12 minutos (máxima distancia posible).
+- **Registrar test:** fecha, superficie, distancia (o vueltas de 400 m + metros extra), sexo y edad (para la
+  tabla de referencia), FC media y máxima, esfuerzo percibido (1–10), temperatura y sensaciones.
+- **Resumen:** último test (vs. anterior), mejor marca, VO2máx estimado y mejora total desde el primer test.
+- **Gráficas** de la evolución de la distancia y del VO2máx, **comparación** de dos tests cualesquiera e
+  **historial** (al tocar un test: detalle, editar y eliminar).
+- **Información:** qué es la prueba, instrucciones paso a paso, precauciones y tabla de referencia por sexo y edad.
+- Cálculos: VO2máx ≈ (metros − 504.9) ÷ 44.73; ritmo = 12 min ÷ km. El entrenador elige al alumno y puede
+  registrar tests en su nombre.
 
 ### Ritmo y Backyard
 - **Ritmo:** distancia (5K, 10K, 15K, 21K, maratón u otra) + tiempo → ritmo por km y velocidad.
@@ -94,12 +107,14 @@ En el servidor (la computadora donde corre XAMPP), así que todos los dispositiv
 | `workouts` | Entrenamientos importados de cada alumno (resumen en JSON) |
 | `templates` | Biblioteca de plantillas de cada entrenador |
 | `assignments` | Plan de cada alumno: fecha, estructura, indicaciones y estado |
+| `cooper_tests` | Resultados del test de Cooper de cada alumno |
+| `login_attempts` | Intentos de inicio de sesión fallidos (límite) |
 | `app_meta` | Versión de la estructura de la base de datos |
 
-- Los archivos `.gpx` originales se guardan en `api/storage/gpx/<id>.gpx` (bloqueada para acceso
-  directo y excluida de GitHub).
+- Los archivos `.gpx` originales se guardan en `api/storage/gpx/<id>.gpx` y las fotos de perfil en
+  `api/storage/avatars/<id de usuario>.jpg` (carpeta bloqueada para acceso directo y excluida de GitHub).
 - Las tablas se crean y actualizan solas (`api/db.php` + `api/schema.sql`).
-- **Respaldo:** copia `api/storage/gpx/` y exporta la base `calculadora_running` desde phpMyAdmin.
+- **Respaldo:** copia `api/storage/` (GPX y fotos) y exporta la base `calculadora_running` desde phpMyAdmin.
 
 ## API (`api/`)
 Todas las respuestas son JSON y requieren sesión (salvo `auth.php`). Las peticiones que modifican
@@ -112,6 +127,8 @@ datos deben enviar la cabecera `X-Requested-With` (protección CSRF; la agrega `
 | `workouts.php` | alumno / entrenador | Importar, listar, ver, descargar y eliminar entrenamientos |
 | `templates.php` | entrenador | Biblioteca de plantillas |
 | `assignments.php` | entrenador / alumno | Asignar entrenos; el alumno los marca como hechos |
+| `cooper.php` | alumno / entrenador | Tests de Cooper: listar, registrar, editar y eliminar |
+| `avatar.php` | todos | Ver, subir y quitar la foto de perfil |
 
 Permisos: el alumno solo ve y modifica lo suyo; el entrenador solo ve a **sus** alumnos y no puede
 borrar sus actividades. Las estructuras de entrenamiento se validan en el servidor (`structure.php`).
@@ -127,7 +144,7 @@ borrar sus actividades. Las estructuras de entrenamiento se validan en el servid
 | `gpx.js` / `storage.js` | Lectura de GPX / entrenamientos en el servidor |
 | `structure.js` | Tipos y estructura de los entrenamientos (cálculos y dibujo) |
 | `charts.js` | Gráficas y mapa en SVG |
-| `dashboard.js`, `plan.js`, `progress.js` | Secciones del alumno |
+| `dashboard.js`, `plan.js`, `progress.js`, `cooper.js` | Secciones del alumno (Progreso y Cooper también del entrenador) |
 | `athletes.js`, `builder.js` | Secciones del entrenador (Alumnos; Crear entreno y Biblioteca) |
 | `api/*.php` | Backend en PHP |
 

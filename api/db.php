@@ -13,7 +13,7 @@
 declare(strict_types=1);
 
 /** Versión de la estructura de la base de datos (ver migrate()). */
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 /* ------------------------------------------------------------------
  * 1. Configuración y conexión
@@ -74,6 +74,7 @@ function db(): PDO
  *  v2: usuarios, plantillas y asignaciones. Los entrenamientos de v1 no
  *      tenían dueño y se eliminan (decisión del proyecto).
  *  v3: tabla login_attempts (límite de intentos de inicio de sesión).
+ *  v4: foto de perfil (users.avatar_at) y tabla cooper_tests.
  */
 function migrate(PDO $pdo): void
 {
@@ -99,6 +100,12 @@ function migrate(PDO $pdo): void
     }
     // Todas las tablas usan CREATE TABLE IF NOT EXISTS: crea las que falten
     runSqlFile($pdo, __DIR__ . '/schema.sql');
+
+    // v4: columna nueva en una tabla que ya existía
+    if (!$pdo->query("SHOW COLUMNS FROM users LIKE 'avatar_at'")->fetchColumn()) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN avatar_at BIGINT NULL
+                    COMMENT 'Fecha de la foto de perfil (api/storage/avatars/<id>.jpg); NULL sin foto' AFTER color");
+    }
 
     $pdo->prepare("REPLACE INTO app_meta (name, value) VALUES ('schema_version', ?)")
         ->execute([(string) SCHEMA_VERSION]);
@@ -197,8 +204,20 @@ function publicUser(array $u): array
         'goal'      => $u['goal'],
         'coachNote' => $u['coach_note'],
         'color'     => $u['color'],
+        'avatar'    => avatarUrl($u),
         'createdAt' => (int) $u['created_at'],
     ];
+}
+
+/**
+ * URL de la foto de perfil (o null). Lleva la fecha de la foto para que
+ * el navegador descargue la nueva cuando cambia.
+ */
+function avatarUrl(array $u): ?string
+{
+    return !empty($u['avatar_at'])
+        ? 'api/avatar.php?id=' . (int) $u['id'] . '&v=' . (int) $u['avatar_at']
+        : null;
 }
 
 /** Hora actual en milisegundos (como Date.now() en JavaScript). */

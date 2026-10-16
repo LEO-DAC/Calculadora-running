@@ -8,7 +8,7 @@
  *  - UI.openModal(html)       hoja modal (cierra con ✕, fondo o Escape)
  *  - UI.closeModal()
  *  - UI.toast(mensaje)        aviso breve en la parte inferior
- *  - UI.avatar(nombre, color) círculo con iniciales
+ *  - UI.avatar(nombre, color, tamaño, foto) foto de perfil o iniciales
  *  - Formatos: km, ritmo, duración, fechas, variación porcentual
  *  - Fechas: iso, parseIso, monday, addDays, relDay...
  *
@@ -99,16 +99,20 @@
   }
 
   /**
-   * Círculo con las iniciales sobre el color del usuario.
+   * Círculo con la foto de perfil o, si no hay, las iniciales sobre el
+   * color del usuario. Si la foto no carga, se ven las iniciales.
    * @param {string} name
    * @param {string} color - Color hexadecimal (#rrggbb).
    * @param {number} [size=38] - Diámetro en px.
+   * @param {string|null} [photo] - URL de la foto (user.avatar, de api/avatar.php).
    */
-  function avatar(name, color, size) {
+  function avatar(name, color, size, photo) {
     const s = size || 38;
     const safeColor = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#0a66c2';
+    const img = photo && /^api\/avatar\.php\?id=\d+&v=\d+$/.test(photo)
+      ? '<img src="' + esc(photo) + '" alt="" loading="lazy" onerror="this.remove()">' : '';
     return '<span class="avatar" style="background:' + safeColor + ';width:' + s + 'px;height:' + s +
-           'px;font-size:' + Math.round(s * 0.37) + 'px" aria-hidden="true">' + esc(initials(name)) + '</span>';
+           'px;font-size:' + Math.round(s * 0.37) + 'px" aria-hidden="true">' + esc(initials(name)) + img + '</span>';
   }
 
   /* ------------------------------------------------------------------

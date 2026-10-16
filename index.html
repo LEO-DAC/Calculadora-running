@@ -27,7 +27,7 @@
   <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <title>Calculadora de Running</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 
@@ -116,6 +116,10 @@
                 aria-controls="progress-view" data-hash="progreso" data-wide="true"
                 data-title="Progreso" data-subtitle="Tu avance en kilómetros por mes y por año"
                 data-subtitle-coach="Avance de tus alumnos por mes y por año">Progreso</button>
+        <button type="button" class="segmented-option" role="tab" id="tab-cooper" data-roles="athlete coach"
+                aria-controls="cooper-view" data-hash="cooper" data-wide="true"
+                data-title="Test de Cooper" data-subtitle="Registra tus tests de 12 minutos y mide tu mejora"
+                data-subtitle-coach="Registra y compara los tests de 12 minutos de tus alumnos">Test de Cooper</button>
         <button type="button" class="segmented-option" role="tab" id="tab-pace" data-roles="athlete"
                 aria-controls="pace-view" data-hash="ritmo"
                 data-title="Ritmo" data-subtitle="Calcula tu ritmo de carrera por kilómetro">Ritmo</button>
@@ -406,6 +410,11 @@
       <div id="progress-root"></div>
     </section>
 
+    <!-- Alumno y entrenador: resultados del test de Cooper (cooper.js) -->
+    <section id="cooper-view" class="view" role="tabpanel" aria-labelledby="tab-cooper" hidden>
+      <div id="cooper-root"></div>
+    </section>
+
     <!-- Entrenador: panel de alumnos (athletes.js) -->
     <section id="athletes-view" class="view" role="tabpanel" aria-labelledby="tab-athletes" hidden>
       <div id="athletes-root"></div>
@@ -438,18 +447,19 @@
     usar una copia guardada: súbelo (aquí, en styles.css y en detalle.html)
     cada vez que cambien los archivos .js o .css.
   -->
-  <script src="gpx.js?v=5"></script>
-  <script src="api.js?v=5"></script>
-  <script src="ui.js?v=5"></script>
-  <script src="structure.js?v=5"></script>
-  <script src="storage.js?v=5"></script>
-  <script src="charts.js?v=5"></script>
-  <script src="app.js?v=5"></script>
-  <script src="dashboard.js?v=5"></script>
-  <script src="plan.js?v=5"></script>
-  <script src="progress.js?v=5"></script>
-  <script src="athletes.js?v=5"></script>
-  <script src="builder.js?v=5"></script>
-  <script src="auth.js?v=5"></script>
+  <script src="gpx.js?v=6"></script>
+  <script src="api.js?v=6"></script>
+  <script src="ui.js?v=6"></script>
+  <script src="structure.js?v=6"></script>
+  <script src="storage.js?v=6"></script>
+  <script src="charts.js?v=6"></script>
+  <script src="app.js?v=6"></script>
+  <script src="dashboard.js?v=6"></script>
+  <script src="plan.js?v=6"></script>
+  <script src="progress.js?v=6"></script>
+  <script src="cooper.js?v=6"></script>
+  <script src="athletes.js?v=6"></script>
+  <script src="builder.js?v=6"></script>
+  <script src="auth.js?v=6"></script>
 </body>
 </html>

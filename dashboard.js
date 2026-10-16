@@ -357,6 +357,27 @@
     if (!win) window.location.href = url; // si el navegador bloquea la ventana
   }
 
+  /**
+   * Elimina un entrenamiento (datos y archivo GPX) después de confirmar,
+   * y avisa a las otras pestañas abiertas (detalle) del cambio.
+   */
+  function removeWorkout(w, button) {
+    if (!confirm('¿Eliminar "' + w.name + '" del ' + fmt.date(w.startTime || w.importedAt) +
+                 '?\nSe borrarán sus datos y el archivo GPX. Esta acción no se puede deshacer.')) return;
+    button.disabled = true;
+    WorkoutStore.remove(w.id)
+      .then(function () {
+        state.workouts = state.workouts.filter(function (x) { return x.id !== w.id; });
+        render();
+        WorkoutStore.notifyChange();
+        UI.toast('Entrenamiento eliminado');
+      })
+      .catch(function (err) {
+        button.disabled = false;
+        alert('No se pudo eliminar el entrenamiento.\n' + err.message);
+      });
+  }
+
   /** Lista de entrenamientos del filtro activo. */
   function renderList(workouts) {
     listEl.textContent = '';
@@ -425,7 +446,16 @@
       link.textContent = 'Ver detalle ›';
       link.setAttribute('aria-label', 'Ver detalle de ' + w.name);
       link.addEventListener('click', function (e) { openDetail(e, url); });
-      side.append(km, link);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'workout-delete';
+      remove.textContent = 'Eliminar';
+      remove.setAttribute('aria-label', 'Eliminar ' + w.name);
+      remove.addEventListener('click', function () { removeWorkout(w, remove); });
+      const actions = document.createElement('div');
+      actions.className = 'workout-actions';
+      actions.append(link, remove);
+      side.append(km, actions);
 
       row.append(icon, main, side);
       listEl.appendChild(row);

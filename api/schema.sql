@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
     goal           VARCHAR(255)  NOT NULL DEFAULT '' COMMENT 'Objetivo del alumno',
     coach_note     VARCHAR(1000) NOT NULL DEFAULT '' COMMENT 'Mensaje del entrenador al alumno',
     color          CHAR(7)       NOT NULL DEFAULT '#0a66c2' COMMENT 'Color del avatar',
+    avatar_at      BIGINT        NULL COMMENT 'Fecha de la foto de perfil (api/storage/avatars/<id>.jpg); NULL sin foto',
     created_at     BIGINT        NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uq_users_email (email),
@@ -80,4 +81,26 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     attempt_key   CHAR(64)      NOT NULL COMMENT 'sha256 de "email:..." o "ip:..."',
     attempted_at  BIGINT        NOT NULL,
     KEY idx_login_attempts (attempt_key, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Resultados del test de Cooper (máxima distancia en 12 minutos) de cada alumno
+CREATE TABLE IF NOT EXISTS cooper_tests (
+    id           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    user_id      INT UNSIGNED  NOT NULL COMMENT 'Alumno evaluado',
+    date         DATE          NOT NULL,
+    distance_m   SMALLINT UNSIGNED NOT NULL COMMENT 'Metros recorridos en 12 minutos',
+    sex          ENUM('M','F') NULL COMMENT 'Para la tabla de referencia',
+    age          TINYINT UNSIGNED NULL COMMENT 'Edad el día del test',
+    surface      VARCHAR(16)   NOT NULL DEFAULT 'pista' COMMENT 'pista, calle, caminadora, otro',
+    hr_avg       SMALLINT UNSIGNED NULL,
+    hr_max       SMALLINT UNSIGNED NULL,
+    rpe          TINYINT UNSIGNED NULL COMMENT 'Esfuerzo percibido 1-10',
+    temp_c       TINYINT       NULL COMMENT 'Temperatura ambiente (°C)',
+    feelings     VARCHAR(2000) NOT NULL DEFAULT '' COMMENT 'Sensaciones y notas',
+    created_by   INT UNSIGNED  NULL COMMENT 'Usuario que lo registró (alumno o entrenador)',
+    created_at   BIGINT        NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_cooper_user_date (user_id, date),
+    CONSTRAINT fk_cooper_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_cooper_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

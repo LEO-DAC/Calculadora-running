@@ -35,6 +35,9 @@ $config = [
     // Carpeta donde se guardan los archivos .gpx originales
     'gpx_dir' => __DIR__ . '/storage/gpx',
 
+    // Carpeta de las fotos de perfil (<id de usuario>.jpg)
+    'avatar_dir' => __DIR__ . '/storage/avatars',
+
     // Tamaño máximo de un archivo GPX (MB). PHP también lo limita con
     // upload_max_filesize y post_max_size en php.ini (40 MB en XAMPP).
     'max_upload_mb' => 40,

@@ -642,6 +642,8 @@
    * @param {function(number):string} opts.formatValue
    * @param {function(number):string} opts.title - Título del tooltip del punto i.
    * @param {number} [opts.height=240]
+   * @param {boolean} [opts.fitMin=false] - El eje Y empieza cerca del valor mínimo
+   *        (en lugar de 0) para que se noten cambios pequeños.
    */
   function multiLine(container, opts) {
     container.textContent = '';
@@ -657,9 +659,15 @@
 
     const all = [];
     opts.series.forEach(function (s) { s.values.forEach(function (v) { if (v !== null) all.push(v); }); });
-    const scale = niceTicks(0, Math.max.apply(null, all.concat([1])), 4);
+    const top = Math.max.apply(null, all.concat([1]));
+    let low = 0;
+    if (opts.fitMin && all.length) {
+      const bottom = Math.min.apply(null, all);
+      low = Math.max(0, bottom - Math.max((top - bottom) * 0.25, top * 0.05));
+    }
+    const scale = niceTicks(low, top, 4);
     const x = function (i) { return pad.left + (n === 1 ? plotW / 2 : plotW * i / (n - 1)); };
-    const y = function (v) { return pad.top + plotH - (v / scale.max) * plotH; };
+    const y = function (v) { return pad.top + plotH - ((v - scale.min) / (scale.max - scale.min)) * plotH; };
 
     scale.ticks.forEach(function (t) {
       svgEl('line', { x1: pad.left, x2: width - pad.right, y1: y(t), y2: y(t), class: 'chart-grid' }, svg);

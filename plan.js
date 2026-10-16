@@ -92,7 +92,7 @@
     root.innerHTML =
       // Mensaje del entrenador
       '<div class="group coach-card">' +
-        (coach ? UI.avatar(coach.name, coach.color, 46) : '') +
+        (coach ? UI.avatar(coach.name, coach.color, 46, coach.avatar) : '') +
         '<div><b>' + esc(coach ? coach.name : 'Sin entrenador') + '</b> <span class="muted">· tu entrenador</span>' +
         '<p>' + (App.user.coachNote ? '“' + esc(App.user.coachNote) + '”' : 'Tu entrenador aún no te ha dejado un mensaje.') + '</p></div>' +
       '</div>' +
@@ -167,7 +167,7 @@
                                                          : '<span class="status-badge">Pendiente</span>') + '</b></div>' +
       '</div>' +
       '<div class="group padded">' + Structure.svg(a.steps, 70, a.tipo) + Structure.listHtml(a.steps) + '</div>' +
-      (a.note ? '<div class="group padded note-card">' + (coach ? UI.avatar(coach.name, coach.color, 32) : '') +
+      (a.note ? '<div class="group padded note-card">' + (coach ? UI.avatar(coach.name, coach.color, 32, coach.avatar) : '') +
         '<div><b>Indicaciones de tu entrenador</b><p>' + esc(a.note) + '</p></div></div>' : '') +
       '<button type="button" class="btn-primary" id="status-button">' +
         (done ? 'Marcar como pendiente' : 'Marcar como hecho') + '</button>'

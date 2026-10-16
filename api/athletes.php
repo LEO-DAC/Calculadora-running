@@ -11,7 +11,7 @@
  *   POST   athletes.php        (JSON con "action")
  *            create { name, email, password, goal }
  *            update { id, name, goal, coachNote, password? }
- *   DELETE athletes.php?id=X   -> elimina al alumno, sus entrenamientos
+ *   DELETE athletes.php?id=X   -> elimina al alumno, sus entrenamientos, foto
  *                                 (y archivos GPX) y su plan
  * =====================================================================
  */
@@ -131,7 +131,8 @@ runApi(function (string $method) {
         foreach ($ids->fetchAll(PDO::FETCH_COLUMN) as $workoutId) {
             @unlink(config()['gpx_dir'] . '/' . $workoutId . '.gpx');
         }
-        // ON DELETE CASCADE elimina sus entrenamientos y asignaciones
+        @unlink(config()['avatar_dir'] . '/' . (int) $athlete['id'] . '.jpg');
+        // ON DELETE CASCADE elimina sus entrenamientos, asignaciones y tests de Cooper
         $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$athlete['id']]);
         respond(200, ['ok' => true]);
     }

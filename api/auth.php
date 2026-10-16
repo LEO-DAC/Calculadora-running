@@ -71,11 +71,11 @@ function sessionInfo(?array $user): array
 {
     $coach = null;
     if ($user && $user['coach_id'] !== null) {
-        $stmt = db()->prepare('SELECT id, name, color FROM users WHERE id = ?');
+        $stmt = db()->prepare('SELECT id, name, color, avatar_at FROM users WHERE id = ?');
         $stmt->execute([$user['coach_id']]);
         $row = $stmt->fetch();
         if ($row) {
-            $coach = ['id' => (int) $row['id'], 'name' => $row['name'], 'color' => $row['color']];
+            $coach = ['id' => (int) $row['id'], 'name' => $row['name'], 'color' => $row['color'], 'avatar' => avatarUrl($row)];
         }
     }
     $needsSetup = !$user && (int) db()->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0;

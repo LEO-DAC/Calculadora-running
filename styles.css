@@ -944,6 +944,33 @@ input::placeholder {
   border-radius: 4px;
 }
 
+/* Acciones de cada entrenamiento: "Ver detalle" y "Eliminar" en la misma línea */
+.workout-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.workout-delete {
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--danger);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.workout-delete:active { opacity: 0.5; }
+.workout-delete:disabled { opacity: 0.4; cursor: default; }
+
+.workout-delete:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .list-empty,
 .empty-state {
   padding: 28px 20px;
@@ -1477,6 +1504,17 @@ input::placeholder {
   font-weight: 700;
   color: #fff;
   border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Foto de perfil encima de las iniciales (si falla al cargar, se quita) */
+.avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* =====================================================================
@@ -1657,6 +1695,19 @@ input::placeholder {
 .btn-small.is-ghost {
   color: var(--text);
   background: var(--segmented-bg);
+}
+
+.btn-small.btn-small-danger {
+  color: var(--danger);
+  background: var(--segmented-bg);
+}
+
+/* Botones de la foto de perfil (ventana de cuenta) */
+.avatar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 14px 68px;
 }
 
 .icon-button {
@@ -2575,6 +2626,138 @@ body.modal-open {
   .next-row:hover { background: var(--menu-highlight); }
   .add-row button:hover { color: var(--accent); border-color: var(--accent); }
   .btn-small:hover { opacity: 0.85; }
+}
+
+/* =====================================================================
+   22. Test de Cooper (cooper.js)
+   ===================================================================== */
+#cooper-root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kpi .unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Categoría según la tabla de referencia */
+.cooper-level {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.cooper-level.is-exc  { color: var(--good); background: var(--good-bg); }
+.cooper-level.is-good { color: var(--t-suave); background: var(--t-suave-bg); }
+.cooper-level.is-avg  { color: var(--accent); background: var(--segmented-bg); }
+.cooper-level.is-low  { color: var(--warn); background: var(--t-tempo-bg); }
+.cooper-level.is-poor { color: var(--bad); background: var(--bad-bg); }
+
+/* Historial */
+.data-table tr.is-clickable { cursor: pointer; }
+.data-table tr.is-clickable:hover td { background: var(--segmented-bg); }
+.data-table tr.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.cooper-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cooper-sub .delta { font-size: 11px; }
+
+.cooper-feel {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+}
+
+.cooper-feel-full {
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.cooper-cmp-table td:first-child { color: var(--text-secondary); }
+
+/* Selects dentro de una fila de formulario */
+.row-select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--text);
+  text-align: right;
+  text-align-last: right;
+  cursor: pointer;
+}
+
+/* Información, instrucciones y tabla de referencia */
+.cooper-info { padding: 0; }
+
+.cooper-info > summary {
+  padding: 14px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.cooper-info > summary::-webkit-details-marker { display: none; }
+.cooper-info > summary::after {
+  content: '›';
+  float: right;
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+.cooper-info[open] > summary::after { transform: rotate(90deg); }
+
+.cooper-info-body {
+  padding: 0 16px 16px;
+  line-height: 1.5;
+}
+.cooper-info-body p { margin: 0 0 10px; }
+.cooper-info-body h4 { margin: 14px 0 4px; font-size: 15px; }
+.cooper-info-body ul,
+.cooper-info-body ol { margin: 0 0 6px; padding-left: 22px; }
+.cooper-info-body li { margin: 3px 0; }
+.cooper-info-body .seg-mini { margin-bottom: 10px; }
+.cooper-info-body .data-table th,
+.cooper-info-body .data-table td { padding-left: 8px; padding-right: 8px; }
+
+.cooper-formula {
+  padding: 10px 12px;
+  font-weight: 600;
+  text-align: center;
+  background: var(--segmented-bg);
+  border-radius: 10px;
+}
+
+.cooper-warning {
+  padding: 10px 12px;
+  color: var(--text);
+  background: var(--t-tempo-bg);
+  border-left: 3px solid var(--warn);
+  border-radius: 8px;
+}
+
+.small-note { font-size: 13px; }
+
+/* Campos numéricos del formulario sin flechas (como el resto de la app) */
+#cooper-form input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+#cooper-form input[type="number"]::-webkit-inner-spin-button,
+#cooper-form input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+@media (max-width: 700px) {
+  .cooper-feel { max-width: 160px; }
+  .cooper-cmp-table { font-size: 14px; }
+  .cooper-cmp-table th,
+  .cooper-cmp-table td { padding-left: 6px; padding-right: 6px; white-space: normal; }
+  .cooper-cmp-table .delta { white-space: nowrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {

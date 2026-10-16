@@ -102,17 +102,84 @@
 
   /** Botón de cuenta: avatar, nombre y rol. */
   function renderUserPill(user) {
-    userPill.innerHTML = UI.avatar(user.name, user.color, 34) +
+    userPill.innerHTML = UI.avatar(user.name, user.color, 34, user.avatar) +
       '<span class="user-pill-text"><b>' + esc(user.name) + '</b><span>' + ROLE_LABELS[user.role] + '</span></span>';
   }
 
-  /** Panel de cuenta: datos, cambiar contraseña y cerrar sesión. */
+  /** Lado (px) de la foto de perfil que se sube al servidor. */
+  const AVATAR_SIZE = 256;
+
+  /**
+   * Recorta la imagen elegida al cuadrado central y la reduce a
+   * AVATAR_SIZE px en JPEG (fotos de celular de varios MB quedan en ~20 KB).
+   * @param {File} file
+   * @returns {Promise<Blob>}
+   */
+  function resizePhoto(file) {
+    return new Promise(function (resolve, reject) {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = function () {
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = AVATAR_SIZE;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; // fondo para imágenes con transparencia
+        ctx.fillRect(0, 0, AVATAR_SIZE, AVATAR_SIZE);
+        ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side,
+                      0, 0, AVATAR_SIZE, AVATAR_SIZE);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function (blob) {
+          if (blob) resolve(blob); else reject(new Error('No se pudo procesar la foto.'));
+        }, 'image/jpeg', 0.86);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('No se pudo leer la imagen. Usa una foto JPG o PNG.'));
+      };
+      img.src = url;
+    });
+  }
+
+  /** Guarda la foto nueva (o null al quitarla) en el usuario y redibuja. */
+  function applyAvatar(updated) {
+    App.user.avatar = updated.avatar;
+    renderUserPill(App.user);
+    openAccount();
+  }
+
+  /** Sube la foto elegida. */
+  function uploadPhoto(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      alert('Elige un archivo de imagen (JPG o PNG).');
+      return;
+    }
+    resizePhoto(file)
+      .then(function (blob) {
+        const form = new FormData();
+        form.append('photo', blob, 'avatar.jpg');
+        return Api.request('api/avatar.php', { method: 'POST', body: form });
+      })
+      .then(function (updated) {
+        applyAvatar(updated);
+        UI.toast('Foto de perfil actualizada');
+      })
+      .catch(function (err) { alert(err.message); });
+  }
+
+  /** Panel de cuenta: foto, datos, cambiar contraseña y cerrar sesión. */
   function openAccount() {
     const user = App.user;
     const coach = App.coach;
     const sheet = UI.openModal(
-      '<div class="sheet-head">' + UI.avatar(user.name, user.color, 56) +
+      '<div class="sheet-head">' + UI.avatar(user.name, user.color, 56, user.avatar) +
         '<div><h2>' + esc(user.name) + '</h2><div class="muted">' + esc(user.email) + ' · ' + ROLE_LABELS[user.role] + '</div></div></div>' +
+      '<div class="avatar-actions">' +
+        '<button type="button" class="btn-small" id="photo-button">' + (user.avatar ? 'Cambiar foto' : 'Agregar foto de perfil') + '</button>' +
+        (user.avatar ? '<button type="button" class="btn-small btn-small-danger" id="photo-remove">Quitar foto</button>' : '') +
+        '<input type="file" id="photo-input" accept="image/*" hidden>' +
+      '</div>' +
       (coach ? '<p class="muted">Tu entrenador: <b>' + esc(coach.name) + '</b></p>' : '') +
       (user.goal ? '<p class="muted">Objetivo: <b>' + esc(user.goal) + '</b></p>' : '') +
       '<h3 class="section-title">Cambiar contraseña</h3>' +
@@ -126,6 +193,22 @@
       '</form>' +
       '<button type="button" class="btn-destructive" id="logout-button">Cerrar sesión</button>'
     );
+
+    const photoInput = sheet.querySelector('#photo-input');
+    sheet.querySelector('#photo-button').addEventListener('click', function () { photoInput.click(); });
+    photoInput.addEventListener('change', function () { uploadPhoto(photoInput.files[0]); });
+    const removeButton = sheet.querySelector('#photo-remove');
+    if (removeButton) {
+      removeButton.addEventListener('click', function () {
+        if (!confirm('¿Quitar tu foto de perfil?')) return;
+        Api.del('api/avatar.php')
+          .then(function (updated) {
+            applyAvatar(updated);
+            UI.toast('Foto de perfil eliminada');
+          })
+          .catch(function (err) { alert(err.message); });
+      });
+    }
 
     const form = sheet.querySelector('#password-form');
     form.addEventListener('submit', function (e) {
