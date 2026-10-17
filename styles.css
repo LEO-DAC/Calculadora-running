@@ -2747,6 +2747,13 @@ body.modal-open {
 
 .small-note { font-size: 13px; }
 
+/* Gráfica de evolución: selector de tipo junto al título */
+#cooper-root .section-head { flex-wrap: wrap; }
+#cooper-root .section-head .seg-mini { margin: 0 0 6px; }
+#cooper-root .chart-bar.is-active { opacity: 0.75; }
+.combo-axis { stroke-width: 1.5; }
+.combo-dot { stroke: var(--surface); stroke-width: 2; }
+
 /* Campos numéricos del formulario sin flechas (como el resto de la app) */
 #cooper-form input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 #cooper-form input[type="number"]::-webkit-inner-spin-button,

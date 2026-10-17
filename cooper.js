@@ -10,7 +10,8 @@
  *     temperatura, sexo y edad (para la tabla de referencia) y sensaciones.
  *   - Ver indicadores: último resultado, mejor marca, VO2máx estimado,
  *     categoría según la tabla de Cooper y mejora desde el primer test.
- *   - Gráficas de la evolución de la distancia y del VO2máx.
+ *   - Gráfica de la evolución de la distancia y del VO2máx juntos, con dos
+ *     tipos: barras + línea (dos ejes) o mejora % frente al primer test.
  *   - Comparar dos tests cualesquiera.
  *   - Historial con detalle, edición y eliminación.
  *   - Información de qué es la prueba, cómo hacerla y tabla de referencia.
@@ -144,10 +145,11 @@
   }
 
   /** Contenedor de gráfica; se dibuja después de insertar el HTML. */
-  function chartBox(draw) {
+  function chartBox(draw, legendItems) {
     const id = 'cooper-chart-' + state.charts.length;
     state.charts.push({ id: id, draw: draw });
-    return '<div class="group chart-card"><div class="chart" id="' + id + '"></div></div>';
+    return '<div class="group chart-card">' + (legendItems ? Charts.legend(legendItems) : '') +
+           '<div class="chart" id="' + id + '"></div></div>';
   }
 
   function drawCharts() {
@@ -179,7 +181,25 @@
     '</div>';
   }
 
-  /** Gráficas de evolución. */
+  /** Tipos de gráfica de evolución (se recuerda la elección en este navegador). */
+  const CHART_TYPES = [
+    { value: 'combo', label: 'Barras + línea' },
+    { value: 'pct', label: 'Mejora %' }
+  ];
+  const CHART_KEY = 'cooper-chart-type';
+  try { state.chartType = localStorage.getItem(CHART_KEY) === 'pct' ? 'pct' : 'combo'; } catch (e) { state.chartType = 'combo'; }
+
+  const COLOR_DIST = 'var(--accent)';
+  const COLOR_VO2 = 'var(--t-tempo)';
+  const fmtPct = function (v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%'; };
+
+  /**
+   * Evolución de la distancia y del VO2máx en una sola gráfica:
+   *  - "Barras + línea": metros en barras (eje izq.) y VO2máx en línea (eje der.).
+   *  - "Mejora %": ambas como % de cambio frente al primer test (mismo eje).
+   *    Como el VO2máx se calcula restando una constante a la distancia, su
+   *    mejora porcentual es mayor: aquí se ve la diferencia.
+   */
   function charts(tests) {
     // En pantallas angostas: solo mes y año ("sep 26") para que no se encimen
     const labelsFor = function (el) {
@@ -193,26 +213,48 @@
       const lv = level(tests[i]);
       return UI.fmtDate(dateOf(tests[i])) + (lv ? ' · ' + lv.label : '');
     };
-    return '<h2 class="section-title">Evolución de la distancia</h2>' +
-      chartBox(function (el) {
+    const meters = tests.map(function (t) { return t.distanceM; });
+    const vo2s = tests.map(function (t) { return Number(vo2(t.distanceM).toFixed(1)); });
+    const legend = [{ color: COLOR_DIST, name: 'Distancia (m)' }, { color: COLOR_VO2, name: 'VO2máx (ml/kg/min)' }];
+
+    let draw;
+    let note;
+    if (state.chartType === 'pct') {
+      const pct = function (values) {
+        return values.map(function (v) { return Number(((v - values[0]) / values[0] * 100).toFixed(1)); });
+      };
+      draw = function (el) {
         Charts.multiLine(el, {
-          labels: labelsFor(el), fitMin: true, height: 230,
-          series: [{ name: 'Distancia', color: 'var(--accent)', values: tests.map(function (t) { return t.distanceM; }) }],
-          formatTick: function (v) { return v.toLocaleString('es-MX'); },
-          formatValue: function (v) { return fmtM(v); },
-          title: title
+          labels: labelsFor(el), fitMin: true, height: 260,
+          series: [{ name: 'Distancia', color: COLOR_DIST, values: pct(meters) },
+                   { name: 'VO2máx', color: COLOR_VO2, values: pct(vo2s) }],
+          formatTick: function (v) { return (v > 0 ? '+' : '') + v + '%'; },
+          formatValue: fmtPct,
+          title: function (i) { return title(i) + (i ? '' : ' (referencia)'); }
         });
-      }) +
-      '<h2 class="section-title">VO2máx estimado (ml/kg/min)</h2>' +
-      chartBox(function (el) {
-        Charts.multiLine(el, {
-          labels: labelsFor(el), fitMin: true, height: 200,
-          series: [{ name: 'VO2máx', color: 'var(--t-tempo)', values: tests.map(function (t) { return Number(vo2(t.distanceM).toFixed(1)); }) }],
-          formatTick: function (v) { return String(v); },
-          formatValue: function (v) { return v.toFixed(1); },
-          title: title
+      };
+      note = 'Cambio respecto a tu primer test (' + UI.fmtDate(dateOf(tests[0])) + '). El VO2máx se calcula a partir de la distancia, ' +
+             'por eso sube más en porcentaje con la misma mejora en metros.';
+    } else {
+      draw = function (el) {
+        Charts.combo(el, {
+          labels: labelsFor(el), height: 270, title: title,
+          bars: { name: 'Distancia', unit: 'm', color: COLOR_DIST, values: meters,
+                  formatTick: function (v) { return v.toLocaleString('es-MX'); }, format: fmtM },
+          line: { name: 'VO2máx', unit: 'VO2', color: COLOR_VO2, values: vo2s,
+                  formatTick: function (v) { return String(Number(v.toFixed(1))); }, format: function (v) { return v.toFixed(1); } }
         });
-      });
+      };
+      note = 'Barras: metros recorridos (eje izquierdo). Línea: VO2máx estimado en ml/kg/min (eje derecho). ' +
+             'Pasa el cursor o toca una columna para ver ambos valores.';
+    }
+
+    return '<div class="section-head"><h2 class="section-title">Evolución: distancia y VO2máx</h2>' +
+        '<div class="seg-mini" role="group" aria-label="Tipo de gráfica">' + CHART_TYPES.map(function (t) {
+          return '<button type="button" data-chart="' + t.value + '" aria-pressed="' + (t.value === state.chartType) + '">' + t.label + '</button>';
+        }).join('') + '</div></div>' +
+      chartBox(draw, legend) +
+      '<p class="group-footer">' + note + '</p>';
   }
 
   /** Comparación de dos tests. */
@@ -573,6 +615,12 @@
     if (e.target.closest('[data-new]')) return openForm(null);
     const open = e.target.closest('[data-open]');
     if (open) return openDetail(Number(open.dataset.open));
+    const chartType = e.target.closest('[data-chart]');
+    if (chartType) {
+      state.chartType = chartType.dataset.chart;
+      try { localStorage.setItem(CHART_KEY, state.chartType); } catch (err) { /* sin almacenamiento */ }
+      return render();
+    }
     const norm = e.target.closest('[data-norm]');
     if (norm) {
       state.normSex = norm.dataset.norm;

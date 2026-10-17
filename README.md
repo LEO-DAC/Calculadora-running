@@ -64,8 +64,10 @@ Registro de la prueba de 12 minutos (máxima distancia posible).
 - **Registrar test:** fecha, superficie, distancia (o vueltas de 400 m + metros extra), sexo y edad (para la
   tabla de referencia), FC media y máxima, esfuerzo percibido (1–10), temperatura y sensaciones.
 - **Resumen:** último test (vs. anterior), mejor marca, VO2máx estimado y mejora total desde el primer test.
-- **Gráficas** de la evolución de la distancia y del VO2máx, **comparación** de dos tests cualesquiera e
-  **historial** (al tocar un test: detalle, editar y eliminar).
+- **Gráfica de evolución** con la distancia y el VO2máx juntos, en dos tipos: **Barras + línea** (metros en
+  barras con eje izquierdo y VO2máx en línea con eje derecho) o **Mejora %** (ambos como % de cambio frente al
+  primer test). Se recuerda el tipo elegido en cada navegador.
+- **Comparación** de dos tests cualesquiera e **historial** (al tocar un test: detalle, editar y eliminar).
 - **Información:** qué es la prueba, instrucciones paso a paso, precauciones y tabla de referencia por sexo y edad.
 - Cálculos: VO2máx ≈ (metros − 504.9) ÷ 44.73; ritmo = 12 min ÷ km. El entrenador elige al alumno y puede
   registrar tests en su nombre.

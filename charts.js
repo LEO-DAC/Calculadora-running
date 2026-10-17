@@ -11,6 +11,7 @@
  *  - Charts.route(contenedor, track)        -> dibujo de la ruta GPS
  *  - Charts.groupedBar(contenedor, opciones) -> barras de varias series
  *  - Charts.multiLine(contenedor, opciones)  -> líneas de varias series
+ *  - Charts.combo(contenedor, opciones)      -> barras + línea con dos ejes Y
  *  - Charts.spark(valores, color)            -> mini gráfica (texto SVG)
  *  - Charts.legend(elementos)                -> leyenda (texto HTML)
  *
@@ -663,7 +664,8 @@
     let low = 0;
     if (opts.fitMin && all.length) {
       const bottom = Math.min.apply(null, all);
-      low = Math.max(0, bottom - Math.max((top - bottom) * 0.25, top * 0.05));
+      const margin = Math.max((top - bottom) * 0.25, Math.abs(top) * 0.05, 1e-6);
+      low = bottom < 0 ? bottom - margin : Math.max(0, bottom - margin);
     }
     const scale = niceTicks(low, top, 4);
     const x = function (i) { return pad.left + (n === 1 ? plotW / 2 : plotW * i / (n - 1)); };
@@ -748,6 +750,130 @@
   }
 
   /* ------------------------------------------------------------------
+   * 6b. Gráfica combinada: barras (eje izquierdo) + línea (eje derecho)
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Barras de una serie (eje izquierdo, desde 0) y línea de otra serie con
+   * su propio eje a la derecha. Sirve para ver dos métricas de distinta
+   * unidad en la misma gráfica (p. ej. metros y VO2máx).
+   *
+   * @param {HTMLElement} container
+   * @param {object} opts
+   * @param {string[]} opts.labels - Etiqueta de cada columna (eje X).
+   * @param {{name:string, color:string, values:number[], formatTick:function, format:function}} opts.bars
+   * @param {{name:string, color:string, values:number[], formatTick:function, format:function}} opts.line
+   * @param {function(number):string} opts.title - Título del tooltip de la columna i.
+   * @param {number} [opts.height=260]
+   */
+  function combo(container, opts) {
+    container.textContent = '';
+    const width = container.clientWidth || 320;
+    const height = opts.height || 260;
+    const pad = { top: 26, right: 46, bottom: 26, left: 46 };
+    const plotW = width - pad.left - pad.right;
+    const plotH = height - pad.top - pad.bottom;
+    const n = opts.labels.length;
+
+    const svg = svgEl('svg', { width: width, height: height, viewBox: '0 0 ' + width + ' ' + height }, container);
+    const tooltip = createTooltip(container);
+
+    // Eje izquierdo (barras) desde 0, con espacio arriba; eje derecho (línea)
+    // alineado a la misma cuadrícula. Las barras quedan en la parte baja y la
+    // línea en la franja de arriba, para que no se tapen.
+    const barMax = Math.max.apply(null, opts.bars.values.concat([1]));
+    const left = niceTicks(0, barMax * 1.55, 4);
+    const lv = opts.line.values;
+    const lMin = Math.min.apply(null, lv);
+    const lMax = Math.max.apply(null, lv);
+    const barTop = barMax / left.max;                       // altura relativa de la barra más alta
+    const from = Math.min(barTop + 0.1, 0.75);              // la línea empieza arriba de las barras
+    const span = Math.max(lMax - lMin, Math.abs(lMax) * 0.04, 1e-6);
+    const range = span / (0.93 - from);
+    const rMin = lMin - from * range;
+    const yL = function (v) { return pad.top + plotH - (v - left.min) / (left.max - left.min) * plotH; };
+    const yR = function (v) { return pad.top + plotH - (v - rMin) / range * plotH; };
+    const base = pad.top + plotH;
+
+    left.ticks.forEach(function (t) {
+      svgEl('line', { x1: pad.left, x2: width - pad.right, y1: yL(t), y2: yL(t), class: 'chart-grid' }, svg);
+      const l = svgEl('text', { x: pad.left - 8, y: yL(t) + 4, 'text-anchor': 'end', class: 'chart-axis-text' }, svg);
+      l.textContent = opts.bars.formatTick(t);
+    });
+    // Eje derecho: solo en la franja de la línea, con marcas propias
+    const rTicks = niceTicks(lMin - span * 0.15, lMax + span * 0.15, 3).ticks.filter(function (t) {
+      return yR(t) >= pad.top - 2 && yR(t) <= pad.top + plotH * (1 - from + 0.08);
+    });
+    svgEl('line', { x1: width - pad.right + 2, x2: width - pad.right + 2, class: 'combo-axis',
+                    y1: yR(rTicks[rTicks.length - 1] !== undefined ? rTicks[rTicks.length - 1] : lMax),
+                    y2: yR(rTicks[0] !== undefined ? rTicks[0] : lMin) }, svg).style.stroke = opts.line.color;
+    rTicks.forEach(function (t) {
+      svgEl('line', { x1: width - pad.right + 2, x2: width - pad.right + 6, y1: yR(t), y2: yR(t), class: 'combo-axis' }, svg).style.stroke = opts.line.color;
+      const r = svgEl('text', { x: width - pad.right + 9, y: yR(t) + 4, 'text-anchor': 'start', class: 'chart-axis-text' }, svg);
+      r.textContent = opts.line.formatTick(t);
+      r.style.fill = opts.line.color;
+    });
+    // Nombre de cada eje
+    const tl = svgEl('text', { x: pad.left - 8, y: 12, 'text-anchor': 'end', class: 'chart-axis-text' }, svg);
+    tl.textContent = opts.bars.unit || '';
+    const tr = svgEl('text', { x: width - pad.right + 8, y: 12, 'text-anchor': 'start', class: 'chart-axis-text' }, svg);
+    tr.textContent = opts.line.unit || '';
+    tr.style.fill = opts.line.color;
+
+    const band = plotW / n;
+    const barWidth = Math.max(6, Math.min(44, band * 0.55));
+    const cx = function (i) { return pad.left + band * (i + 0.5); };
+    const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(plotW / 58))));
+
+    const bars = opts.bars.values.map(function (v, i) {
+      if (i % every === 0 || i === n - 1) {
+        const label = svgEl('text', { x: cx(i), y: height - 8, 'text-anchor': 'middle', class: 'chart-axis-text' }, svg);
+        label.textContent = opts.labels[i];
+      }
+      if (!(v > 0)) return null;
+      const el = svgEl('path', { d: roundedBarPath(cx(i) - barWidth / 2, yL(v), barWidth, base), class: 'chart-bar' }, svg);
+      el.style.fill = opts.bars.color;
+      return el;
+    });
+
+    // Línea con puntos y el último valor etiquetado
+    let d = '';
+    lv.forEach(function (v, i) { d += (i ? 'L' : 'M') + cx(i).toFixed(1) + ',' + yR(v).toFixed(1); });
+    const path = svgEl('path', { d: d, class: 'chart-line' }, svg);
+    path.style.stroke = opts.line.color;
+    const dots = lv.map(function (v, i) {
+      const c = svgEl('circle', { cx: cx(i), cy: yR(v), r: 4, class: 'chart-dot combo-dot' }, svg);
+      c.style.fill = opts.line.color;
+      return c;
+    });
+    const last = n - 1;
+    const endLabel = svgEl('text', { x: cx(last), y: yR(lv[last]) - 10, 'text-anchor': 'middle', class: 'chart-value-label' }, svg);
+    endLabel.textContent = opts.line.format(lv[last]);
+    const barLabel = svgEl('text', { x: cx(last), y: yL(opts.bars.values[last]) - 6, 'text-anchor': 'middle', class: 'chart-value-label' }, svg);
+    barLabel.textContent = opts.bars.format(opts.bars.values[last]);
+
+    // Interacción por columna
+    function setIndex(i) {
+      bars.forEach(function (b, j) { if (b) b.classList.toggle('is-active', j === i); });
+      dots.forEach(function (c, j) { c.setAttribute('r', j === i ? 6 : 4); });
+      if (i === null) { tooltip.hide(); return; }
+      tooltip.show(opts.title(i), [
+        { color: opts.bars.color, value: opts.bars.format(opts.bars.values[i]), label: opts.bars.name },
+        { color: opts.line.color, value: opts.line.format(lv[i]), label: opts.line.name }
+      ], cx(i), 4);
+    }
+    opts.labels.forEach(function (_, i) {
+      const hit = svgEl('rect', { x: pad.left + band * i, y: pad.top, width: band, height: plotH, class: 'chart-hit', tabindex: 0, role: 'img',
+                                  'aria-label': opts.title(i) + ': ' + opts.bars.format(opts.bars.values[i]) + ', ' + opts.line.name + ' ' + opts.line.format(lv[i]) }, svg);
+      hit.addEventListener('pointerenter', function () { setIndex(i); });
+      hit.addEventListener('pointerdown', function () { setIndex(i); });
+      hit.addEventListener('focus', function () { setIndex(i); });
+      hit.addEventListener('pointerleave', function () { setIndex(null); });
+      hit.addEventListener('blur', function () { setIndex(null); });
+    });
+  }
+
+  /* ------------------------------------------------------------------
    * 7. Mini gráfica (sparkline) y leyenda
    * ------------------------------------------------------------------ */
 
@@ -786,6 +912,7 @@
   window.Charts = {
     bar: bar,
     groupedBar: groupedBar,
+    combo: combo,
     multiLine: multiLine,
     lineStack: lineStack,
     route: route,
